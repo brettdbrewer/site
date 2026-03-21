@@ -285,7 +285,7 @@ The full composition grammar specs and the Go reference implementation are open 
 
 ---
 
-*This is Post 36 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 35: [The Missing Social Grammar](https://mattsearles2.substack.com/p/the-missing-social-grammar). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
+*This is Post 36 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 35: [The Missing Social Grammar](/blog/the-missing-social-grammar). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
 
 *Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*
 

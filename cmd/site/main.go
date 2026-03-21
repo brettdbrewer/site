@@ -30,6 +30,12 @@ func main() {
 	}
 	log.Printf("loaded %d blog posts", len(posts))
 
+	refPages, err := content.LoadReference()
+	if err != nil {
+		log.Fatalf("load reference: %v", err)
+	}
+	log.Printf("loaded %d reference pages", len(refPages))
+
 	handleHome, handleBlogIndex, handleBlogPost := makeHandlers(posts)
 
 	mux := http.NewServeMux()
@@ -41,6 +47,19 @@ func main() {
 	mux.HandleFunc("GET /{$}", handleHome)
 	mux.HandleFunc("GET /blog", handleBlogIndex)
 	mux.HandleFunc("GET /blog/{slug}", handleBlogPost)
+	mux.HandleFunc("GET /reference", func(w http.ResponseWriter, r *http.Request) {
+		views.ReferenceIndex(refPages).Render(r.Context(), w)
+	})
+	mux.HandleFunc("GET /reference/{slug}", func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		for _, page := range refPages {
+			if page.Slug == slug {
+				views.ReferencePage(page, refPages).Render(r.Context(), w)
+				return
+			}
+		}
+		http.NotFound(w, r)
+	})
 
 	// Health check for Fly.io.
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

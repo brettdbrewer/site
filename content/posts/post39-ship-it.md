@@ -149,7 +149,7 @@ This is the same principle as the architecture itself: the graph doesn't care wh
 
 ## What You Can Build
 
-[Post 31](https://mattsearles2.substack.com/p/what-you-could-build) laid out a gradient — from weekend builds to civilisational infrastructure. An AI agent audit trail. A freelancer reputation ledger. A dispute resolution platform. Community governance. Supply chain transparency. Enterprise AI accountability. A universal research graph. An ecological commons.
+[Post 31](/blog/what-you-could-build) laid out a gradient — from weekend builds to civilisational infrastructure. An AI agent audit trail. A freelancer reputation ledger. A dispute resolution platform. Community governance. Supply chain transparency. Enterprise AI accountability. A universal research graph. An ecological commons.
 
 That post was a wish list. This post makes it real.
 
@@ -189,6 +189,6 @@ Ship it.
 
 ---
 
-*This is Post 39 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 38: [The Grammar That Knows How to Die](https://mattsearles2.substack.com/p/the-grammar-that-knows-how-to-die). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
+*This is Post 39 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 38: [The Grammar That Knows How to Die](/blog/the-grammar-that-knows-how-to-die). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
 
 *Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*

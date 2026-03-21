@@ -6,7 +6,7 @@ Matt Searles (+Claude) · March 2026
 
 ---
 
-This is the first deep dive in a series that will eventually cover all thirteen graphs described in [Thirteen Graphs, One Infrastructure](https://mattsearles2.substack.com/p/thirteen-graphs-one-infrastructure). I'm starting here because the Work Graph is Layer 1 — Agency — and because I'm deploying it this week at a real company. Not theory. Not "imagine if." This is happening.
+This is the first deep dive in a series that will eventually cover all thirteen graphs described in [Thirteen Graphs, One Infrastructure](/blog/thirteen-graphs-one-infrastructure). I'm starting here because the Work Graph is Layer 1 — Agency — and because I'm deploying it this week at a real company. Not theory. Not "imagine if." This is happening.
 
 The company is Lovatts Puzzles. Hundreds of legacy applications accumulated over decades. Crossword generators, subscription systems, print layout tools, customer databases, distribution pipelines — each built to solve a specific problem at a specific time, none of them aware of each other, all of them held together by humans who remember which system talks to which and in what order.
 
@@ -138,4 +138,4 @@ Next deep dive: the Market Graph — what happens when exchange, escrow, and rep
 
 ---
 
-*This is Post 14 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 11: [Thirteen Graphs, One Infrastructure](https://mattsearles2.substack.com/p/thirteen-graphs-one-infrastructure) (the overview of all 13 graphs) Post 3: [The Architecture of Accountable AI](https://mattsearles2.substack.com/p/the-architecture-of-accountable-ai) (the technical deep-dive on the event graph) Post 1: [20 Primitives and a Late Night](https://mattsearles2.substack.com/p/20-primitives-and-a-late-night) (where it all started) The code is open source: [github.com/mattxo/mind-zero-five](https://github.com/mattxo/mind-zero-five) Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*
+*This is Post 14 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 11: [Thirteen Graphs, One Infrastructure](/blog/thirteen-graphs-one-infrastructure) (the overview of all 13 graphs) Post 3: [The Architecture of Accountable AI](/blog/the-architecture-of-accountable-ai) (the technical deep-dive on the event graph) Post 1: [20 Primitives and a Late Night](/blog/20-primitives-and-a-late-night) (where it all started) The code is open source: [github.com/mattxo/mind-zero-five](https://github.com/mattxo/mind-zero-five) Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*

@@ -1,0 +1,89 @@
+package views
+
+import "fmt"
+
+templ ReferenceIndex(pages []RefPage) {
+	@Layout("Reference") {
+		<div class="space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Reference</h1>
+				<p class="text-gray-600 mt-2">201 primitives across 14 layers. Each layer derives from a gap in the layer below — something the lower layer can represent but cannot reason about.</p>
+			</div>
+			<div class="space-y-3">
+				<h2 class="text-xl font-semibold">Layers</h2>
+				for _, page := range pages {
+					if page.Order <= 13 {
+						@refCard(page)
+					}
+				}
+			</div>
+			<div class="space-y-3">
+				<h2 class="text-xl font-semibold">Agent Architecture</h2>
+				for _, page := range pages {
+					if page.Order > 13 {
+						@refCard(page)
+					}
+				}
+			</div>
+		</div>
+	}
+}
+
+templ refCard(page RefPage) {
+	<a href={ templ.SafeURL("/reference/" + page.Slug) } class="block p-5 bg-white rounded-lg border border-gray-200 hover:border-brand hover:shadow-md transition-all">
+		<div class="flex items-baseline gap-3">
+			if page.Order <= 13 {
+				<span class="text-sm font-mono text-gray-400">{ fmt.Sprintf("%d", page.Order) }</span>
+			}
+			<div>
+				<h3 class="text-lg font-semibold">{ page.Title }</h3>
+				<p class="text-gray-600 text-sm mt-1">{ page.Summary }</p>
+			</div>
+		</div>
+	</a>
+}
+
+templ ReferencePage(page RefPage, pages []RefPage) {
+	@Layout(page.Title) {
+		<article class="space-y-6">
+			<div>
+				<a href="/reference" class="text-sm text-brand hover:underline">&larr; All layers</a>
+			</div>
+			<header>
+				if page.Order <= 13 {
+					<span class="text-sm text-gray-400 font-mono">{ fmt.Sprintf("Layer %d", page.Order) }</span>
+				}
+				<h1 class="text-3xl font-bold mt-1">{ page.Title }</h1>
+			</header>
+			<div class="prose max-w-none">
+				@templ.Raw(page.Body)
+			</div>
+			@refNav(page, pages)
+		</article>
+	}
+}
+
+templ refNav(current RefPage, pages []RefPage) {
+	<nav class="border-t border-gray-200 pt-6 mt-8 flex justify-between items-start gap-4">
+		<div class="flex-1">
+			for _, p := range pages {
+				if p.Order == current.Order - 1 {
+					<a href={ templ.SafeURL("/reference/" + p.Slug) } class="group">
+						<span class="text-sm text-gray-400 group-hover:text-brand">&larr; Previous</span>
+						<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
+					</a>
+				}
+			}
+		</div>
+		<div class="flex-1 text-right">
+			for _, p := range pages {
+				if p.Order == current.Order + 1 {
+					<a href={ templ.SafeURL("/reference/" + p.Slug) } class="group">
+						<span class="text-sm text-gray-400 group-hover:text-brand">Next &rarr;</span>
+						<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
+					</a>
+				}
+			}
+		</div>
+	</nav>
+}

@@ -170,7 +170,7 @@ One grammar. Thirteen languages. One chain. And the chain remembers what people 
 
 ---
 
-*This is Post 37 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 36: [One Grammar, Thirteen Languages](https://mattsearles2.substack.com/p/one-grammar-thirteen-languages). Post 35: [The Missing Social Grammar](https://mattsearles2.substack.com/p/the-missing-social-grammar). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
+*This is Post 37 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 36: [One Grammar, Thirteen Languages](/blog/one-grammar-thirteen-languages). Post 35: [The Missing Social Grammar](/blog/the-missing-social-grammar). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
 
 *Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*
 

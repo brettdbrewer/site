@@ -213,6 +213,6 @@ Next post: what that civilisation looks like.
 
 ---
 
-*This is Post 40 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 39: [Ship It](https://mattsearles2.substack.com/p/ship-it). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph). The hive: [github.com/lovyou-ai/hive](https://github.com/lovyou-ai/hive).*
+*This is Post 40 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 39: [Ship It](/blog/ship-it). The code: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph). The hive: [github.com/lovyou-ai/hive](https://github.com/lovyou-ai/hive).*
 
 *Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*

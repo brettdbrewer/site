@@ -200,6 +200,6 @@ In that order. But they rarely conflict.
 
 ---
 
-*This is Post 41 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 40: [Twenty-Eight Primitives](https://mattsearles2.substack.com/p/twenty-eight-primitives). The hive: [github.com/lovyou-ai/hive](https://github.com/lovyou-ai/hive). The infrastructure: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
+*This is Post 41 of a series on LovYou, mind-zero, and the architecture of accountable AI. Post 40: [Twenty-Eight Primitives](/blog/twenty-eight-primitives). The hive: [github.com/lovyou-ai/hive](https://github.com/lovyou-ai/hive). The infrastructure: [github.com/lovyou-ai/eventgraph](https://github.com/lovyou-ai/eventgraph).*
 
 *Matt Searles is the founder of LovYou. Claude is an AI made by Anthropic. They built this together.*

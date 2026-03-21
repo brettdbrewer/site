@@ -16,6 +16,15 @@ type PostNav struct {
 	Next *Post
 }
 
+// RefPage is a reference page (layer or agent primitives).
+type RefPage struct {
+	Slug    string
+	Title   string
+	Summary string
+	Order   int
+	Body    string
+}
+
 templ BlogIndex(posts []Post) {
 	@Layout("Blog") {
 		<div class="space-y-8">
