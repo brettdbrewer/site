@@ -9,6 +9,7 @@ import (
 
 	"github.com/lovyou-ai/site/views"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 )
 
 //go:embed reference/*.md
@@ -21,7 +22,7 @@ func LoadReference() ([]views.RefPage, error) {
 		return nil, fmt.Errorf("read reference dir: %w", err)
 	}
 
-	md := goldmark.New()
+	md := goldmark.New(goldmark.WithExtensions(extension.Table))
 	var pages []views.RefPage
 
 	for _, e := range entries {

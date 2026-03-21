@@ -13,6 +13,7 @@ import (
 
 	"github.com/lovyou-ai/site/views"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 )
 
 //go:embed posts/*.md
@@ -30,7 +31,7 @@ func LoadPosts() ([]views.Post, error) {
 		return nil, fmt.Errorf("read posts dir: %w", err)
 	}
 
-	md := goldmark.New()
+	md := goldmark.New(goldmark.WithExtensions(extension.Table))
 	var posts []views.Post
 
 	for _, e := range entries {
