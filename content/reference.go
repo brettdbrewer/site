@@ -2,9 +2,6 @@ package content
 
 import (
 	"bytes"
-	"embed"
-	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/lovyou-ai/site/views"
@@ -12,47 +9,11 @@ import (
 	"github.com/yuin/goldmark/extension"
 )
 
-//go:embed reference/*.md
-var referenceFS embed.FS
+var refMD = goldmark.New(goldmark.WithExtensions(extension.Table))
 
-// LoadReference reads all embedded reference markdown and returns them in order.
-func LoadReference() ([]views.RefPage, error) {
-	entries, err := referenceFS.ReadDir("reference")
-	if err != nil {
-		return nil, fmt.Errorf("read reference dir: %w", err)
-	}
-
-	md := goldmark.New(goldmark.WithExtensions(extension.Table))
-	var pages []views.RefPage
-
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-
-		raw, err := referenceFS.ReadFile("reference/" + e.Name())
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", e.Name(), err)
-		}
-
-		page, err := parseRefPage(md, e.Name(), raw)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", e.Name(), err)
-		}
-		pages = append(pages, page)
-	}
-
-	sort.Slice(pages, func(i, j int) bool {
-		return pages[i].Order < pages[j].Order
-	})
-
-	return pages, nil
-}
-
-func parseRefPage(md goldmark.Markdown, filename string, raw []byte) (views.RefPage, error) {
+func parseGrammarPage(filename string, raw []byte) (views.RefPage, error) {
 	lines := strings.SplitN(string(raw), "\n", -1)
 
-	// Title from first # heading.
 	var title string
 	for _, l := range lines {
 		if strings.HasPrefix(l, "# ") {
@@ -61,7 +22,6 @@ func parseRefPage(md goldmark.Markdown, filename string, raw []byte) (views.RefP
 		}
 	}
 
-	// Summary: first non-empty line after the title that isn't a heading or separator.
 	var summary string
 	pastTitle := false
 	for _, l := range lines {
@@ -83,7 +43,6 @@ func parseRefPage(md goldmark.Markdown, filename string, raw []byte) (views.RefP
 		break
 	}
 
-	// Order: parse from filename prefix (00-, 01-, etc.)
 	order := 99
 	slug := strings.TrimSuffix(filename, ".md")
 	if len(slug) > 2 && slug[2] == '-' {
@@ -94,12 +53,9 @@ func parseRefPage(md goldmark.Markdown, filename string, raw []byte) (views.RefP
 			}
 		}
 		order = n
-		slug = slug[3:] // strip "NN-"
-	} else if slug == "agent-primitives" {
-		order = 14
+		slug = slug[3:]
 	}
 
-	// Convert body to HTML (skip title line).
 	bodyStart := 0
 	for i, l := range lines {
 		if strings.HasPrefix(l, "# ") {
@@ -110,8 +66,8 @@ func parseRefPage(md goldmark.Markdown, filename string, raw []byte) (views.RefP
 	bodyMD := strings.Join(lines[bodyStart:], "\n")
 
 	var buf bytes.Buffer
-	if err := md.Convert([]byte(bodyMD), &buf); err != nil {
-		return views.RefPage{}, fmt.Errorf("convert markdown: %w", err)
+	if err := refMD.Convert([]byte(bodyMD), &buf); err != nil {
+		return views.RefPage{}, err
 	}
 
 	return views.RefPage{

@@ -24,18 +24,36 @@ func main() {
 		p = "8080"
 	}
 
+	// Load content.
 	posts, err := content.LoadPosts()
 	if err != nil {
 		log.Fatalf("load posts: %v", err)
 	}
 	log.Printf("loaded %d blog posts", len(posts))
 
-	refPages, err := content.LoadReference()
-	if err != nil {
-		log.Fatalf("load reference: %v", err)
-	}
-	log.Printf("loaded %d reference pages", len(refPages))
+	layers := content.LoadLayers()
+	agentPrims := content.LoadAgentPrimitives()
+	log.Printf("loaded %d layers, %d agent primitives", len(layers), len(agentPrims))
 
+	// Build primitive lookup for individual pages.
+	primsBySlug := map[string]views.Primitive{}
+	for _, layer := range layers {
+		for _, prim := range layer.Primitives {
+			primsBySlug[prim.Slug] = prim
+		}
+	}
+	for _, prim := range agentPrims {
+		primsBySlug[prim.Slug] = prim
+	}
+	log.Printf("indexed %d primitives", len(primsBySlug))
+
+	grammars, err := content.LoadGrammars()
+	if err != nil {
+		log.Fatalf("load grammars: %v", err)
+	}
+	log.Printf("loaded %d grammars", len(grammars))
+
+	// Blog handlers.
 	handleHome, handleBlogIndex, handleBlogPost := makeHandlers(posts)
 
 	mux := http.NewServeMux()
@@ -47,14 +65,27 @@ func main() {
 	mux.HandleFunc("GET /{$}", handleHome)
 	mux.HandleFunc("GET /blog", handleBlogIndex)
 	mux.HandleFunc("GET /blog/{slug}", handleBlogPost)
+
+	// Reference.
 	mux.HandleFunc("GET /reference", func(w http.ResponseWriter, r *http.Request) {
-		views.ReferenceIndex(refPages).Render(r.Context(), w)
+		views.ReferenceIndex(layers, agentPrims).Render(r.Context(), w)
 	})
-	mux.HandleFunc("GET /reference/{slug}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /reference/primitives/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		slug := r.PathValue("slug")
-		for _, page := range refPages {
-			if page.Slug == slug {
-				views.ReferencePage(page, refPages).Render(r.Context(), w)
+		if prim, ok := primsBySlug[slug]; ok {
+			views.PrimitivePage(prim).Render(r.Context(), w)
+			return
+		}
+		http.NotFound(w, r)
+	})
+	mux.HandleFunc("GET /reference/grammars", func(w http.ResponseWriter, r *http.Request) {
+		views.GrammarIndex(grammars).Render(r.Context(), w)
+	})
+	mux.HandleFunc("GET /reference/grammars/{slug}", func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		for _, g := range grammars {
+			if g.Slug == slug {
+				views.GrammarPage(g, grammars).Render(r.Context(), w)
 				return
 			}
 		}

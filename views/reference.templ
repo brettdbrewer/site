@@ -2,88 +2,227 @@ package views
 
 import "fmt"
 
-templ ReferenceIndex(pages []RefPage) {
+// ── Reference Index ─────────────────────────────────────────────
+
+templ ReferenceIndex(layers []Layer, agentPrims []Primitive) {
 	@Layout("Reference") {
-		<div class="space-y-8">
+		<div class="space-y-10">
 			<div>
 				<h1 class="text-3xl font-bold">Reference</h1>
-				<p class="text-gray-600 mt-2">201 primitives across 14 layers. Each layer derives from a gap in the layer below — something the lower layer can represent but cannot reason about.</p>
+				<p class="text-gray-600 mt-2">201 cognitive primitives across 14 layers. Each layer derives from a gap in the layer below. 28 agent primitives define what an agent is and can do.</p>
+				<div class="flex gap-4 mt-4 text-sm">
+					<a href="/reference/grammars" class="text-brand hover:underline">Composition Grammars &rarr;</a>
+				</div>
 			</div>
-			<div class="space-y-3">
-				<h2 class="text-xl font-semibold">Layers</h2>
-				for _, page := range pages {
-					if page.Order <= 13 {
-						@refCard(page)
-					}
+			for _, layer := range layers {
+				@layerSection(layer)
+			}
+			@agentPrimitivesSection(agentPrims)
+		</div>
+	}
+}
+
+templ layerSection(layer Layer) {
+	<section>
+		<div class="flex items-baseline gap-3 mb-3">
+			<span class="text-sm font-mono text-gray-400">{ fmt.Sprintf("%d", layer.Number) }</span>
+			<div>
+				<h2 class="text-xl font-semibold">{ layer.Name }</h2>
+				if layer.Transition != "" {
+					<p class="text-sm text-gray-500">{ layer.Transition }</p>
 				}
 			</div>
-			<div class="space-y-3">
-				<h2 class="text-xl font-semibold">Agent Architecture</h2>
-				for _, page := range pages {
-					if page.Order > 13 {
-						@refCard(page)
+		</div>
+		if layer.Gap != "" {
+			<p class="text-gray-600 text-sm mb-3">{ layer.Gap }</p>
+		}
+		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+			for _, prim := range layer.Primitives {
+				<a
+					href={ templ.SafeURL("/reference/primitives/" + prim.Slug) }
+					class="block px-3 py-2 bg-white rounded border border-gray-200 hover:border-brand hover:shadow-sm transition-all text-sm"
+				>
+					<span class="font-medium">{ prim.Name }</span>
+					<span class="block text-xs text-gray-400 mt-0.5">{ prim.Group }</span>
+				</a>
+			}
+		</div>
+	</section>
+}
+
+templ agentPrimitivesSection(prims []Primitive) {
+	<section>
+		<div class="mb-3">
+			<h2 class="text-xl font-semibold">Agent Primitives</h2>
+			<p class="text-sm text-gray-500">28 primitives defining what an agent is and can do</p>
+		</div>
+		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+			for _, prim := range prims {
+				<a
+					href={ templ.SafeURL("/reference/primitives/" + prim.Slug) }
+					class="block px-3 py-2 bg-white rounded border border-gray-200 hover:border-brand hover:shadow-sm transition-all text-sm"
+				>
+					<span class="font-medium">{ prim.Name }</span>
+					<span class="block text-xs text-gray-400 mt-0.5">{ prim.Group }</span>
+				</a>
+			}
+		</div>
+	</section>
+}
+
+// ── Primitive Page ──────────────────────────────────────────────
+
+templ PrimitivePage(prim Primitive) {
+	@Layout(prim.Name) {
+		<article class="space-y-6">
+			<div>
+				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
+			</div>
+			<header>
+				if prim.Layer >= 0 {
+					<span class="text-sm text-gray-400 font-mono">{ fmt.Sprintf("Layer %d: %s", prim.Layer, prim.LayerName) }</span>
+				} else {
+					<span class="text-sm text-gray-400 font-mono">Agent Primitive</span>
+				}
+				<h1 class="text-3xl font-bold mt-1">{ prim.Name }</h1>
+				if prim.Group != "" {
+					<span class="text-sm text-gray-500">{ prim.Group }</span>
+				}
+			</header>
+			if prim.Description != "" {
+				<p class="text-gray-700 text-lg">{ prim.Description }</p>
+			}
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm border border-gray-200 rounded">
+					if prim.SubscribesTo != "" {
+						<tr class="border-b border-gray-100">
+							<td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-36">{ specLabel(prim, "subscribes") }</td>
+							<td class="px-4 py-2 font-mono text-xs">{ prim.SubscribesTo }</td>
+						</tr>
 					}
+					if prim.Emits != "" {
+						<tr class="border-b border-gray-100">
+							<td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-36">{ specLabel(prim, "emits") }</td>
+							<td class="px-4 py-2 font-mono text-xs">{ prim.Emits }</td>
+						</tr>
+					}
+					if prim.DependsOn != "" {
+						<tr class="border-b border-gray-100">
+							<td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-36">{ specLabel(prim, "depends") }</td>
+							<td class="px-4 py-2 font-mono text-xs">{ prim.DependsOn }</td>
+						</tr>
+					}
+					if prim.State != "" {
+						<tr class="border-b border-gray-100">
+							<td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-36">{ specLabel(prim, "state") }</td>
+							<td class="px-4 py-2 font-mono text-xs">{ prim.State }</td>
+						</tr>
+					}
+					if prim.Intelligent != "" {
+						<tr>
+							<td class="px-4 py-2 font-medium text-gray-600 bg-gray-50 w-36">{ specLabel(prim, "intelligent") }</td>
+							<td class="px-4 py-2">{ prim.Intelligent }</td>
+						</tr>
+					}
+				</table>
+			</div>
+		</article>
+	}
+}
+
+func specLabel(p Primitive, field string) string {
+	if p.Layer == -1 {
+		// Agent primitives use dimensional labels.
+		switch field {
+		case "subscribes":
+			return "Direction"
+		case "emits":
+			return "Timing"
+		case "depends":
+			return "Mutability"
+		case "state":
+			return "Agency"
+		case "intelligent":
+			return "Awareness"
+		}
+	}
+	switch field {
+	case "subscribes":
+		return "Subscribes to"
+	case "emits":
+		return "Emits"
+	case "depends":
+		return "Depends on"
+	case "state":
+		return "State"
+	case "intelligent":
+		return "Type"
+	}
+	return field
+}
+
+// ── Grammar Pages ───────────────────────────────────────────────
+
+templ GrammarIndex(grammars []RefPage) {
+	@Layout("Grammars") {
+		<div class="space-y-8">
+			<div>
+				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
+				<h1 class="text-3xl font-bold mt-2">Composition Grammars</h1>
+				<p class="text-gray-600 mt-2">Named compositions of primitives that form the vocabulary of each product layer. Operations, modifiers, and named functions.</p>
+			</div>
+			<div class="space-y-3">
+				for _, g := range grammars {
+					<a href={ templ.SafeURL("/reference/grammars/" + g.Slug) } class="block p-5 bg-white rounded-lg border border-gray-200 hover:border-brand hover:shadow-md transition-all">
+						<div class="flex items-baseline gap-3">
+							<span class="text-sm font-mono text-gray-400">{ fmt.Sprintf("%d", g.Order) }</span>
+							<div>
+								<h3 class="text-lg font-semibold">{ g.Title }</h3>
+								<p class="text-gray-600 text-sm mt-1">{ g.Summary }</p>
+							</div>
+						</div>
+					</a>
 				}
 			</div>
 		</div>
 	}
 }
 
-templ refCard(page RefPage) {
-	<a href={ templ.SafeURL("/reference/" + page.Slug) } class="block p-5 bg-white rounded-lg border border-gray-200 hover:border-brand hover:shadow-md transition-all">
-		<div class="flex items-baseline gap-3">
-			if page.Order <= 13 {
-				<span class="text-sm font-mono text-gray-400">{ fmt.Sprintf("%d", page.Order) }</span>
-			}
-			<div>
-				<h3 class="text-lg font-semibold">{ page.Title }</h3>
-				<p class="text-gray-600 text-sm mt-1">{ page.Summary }</p>
-			</div>
-		</div>
-	</a>
-}
-
-templ ReferencePage(page RefPage, pages []RefPage) {
+templ GrammarPage(page RefPage, grammars []RefPage) {
 	@Layout(page.Title) {
 		<article class="space-y-6">
 			<div>
-				<a href="/reference" class="text-sm text-brand hover:underline">&larr; All layers</a>
+				<a href="/reference/grammars" class="text-sm text-brand hover:underline">&larr; All grammars</a>
 			</div>
 			<header>
-				if page.Order <= 13 {
-					<span class="text-sm text-gray-400 font-mono">{ fmt.Sprintf("Layer %d", page.Order) }</span>
-				}
+				<span class="text-sm text-gray-400 font-mono">{ fmt.Sprintf("Layer %d", page.Order) }</span>
 				<h1 class="text-3xl font-bold mt-1">{ page.Title }</h1>
 			</header>
 			<div class="prose max-w-none">
 				@templ.Raw(page.Body)
 			</div>
-			@refNav(page, pages)
+			<nav class="border-t border-gray-200 pt-6 mt-8 flex justify-between items-start gap-4">
+				<div class="flex-1">
+					for _, p := range grammars {
+						if p.Order == page.Order - 1 {
+							<a href={ templ.SafeURL("/reference/grammars/" + p.Slug) } class="group">
+								<span class="text-sm text-gray-400 group-hover:text-brand">&larr; Previous</span>
+								<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
+							</a>
+						}
+					}
+				</div>
+				<div class="flex-1 text-right">
+					for _, p := range grammars {
+						if p.Order == page.Order + 1 {
+							<a href={ templ.SafeURL("/reference/grammars/" + p.Slug) } class="group">
+								<span class="text-sm text-gray-400 group-hover:text-brand">Next &rarr;</span>
+								<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
+							</a>
+						}
+					}
+				</div>
+			</nav>
 		</article>
 	}
-}
-
-templ refNav(current RefPage, pages []RefPage) {
-	<nav class="border-t border-gray-200 pt-6 mt-8 flex justify-between items-start gap-4">
-		<div class="flex-1">
-			for _, p := range pages {
-				if p.Order == current.Order - 1 {
-					<a href={ templ.SafeURL("/reference/" + p.Slug) } class="group">
-						<span class="text-sm text-gray-400 group-hover:text-brand">&larr; Previous</span>
-						<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
-					</a>
-				}
-			}
-		</div>
-		<div class="flex-1 text-right">
-			for _, p := range pages {
-				if p.Order == current.Order + 1 {
-					<a href={ templ.SafeURL("/reference/" + p.Slug) } class="group">
-						<span class="text-sm text-gray-400 group-hover:text-brand">Next &rarr;</span>
-						<span class="block text-brand font-medium group-hover:underline">{ p.Title }</span>
-					</a>
-				}
-			}
-		</div>
-	</nav>
 }

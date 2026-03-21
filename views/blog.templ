@@ -16,13 +16,37 @@ type PostNav struct {
 	Next *Post
 }
 
-// RefPage is a reference page (layer or agent primitives).
+// RefPage is a reference page (grammar/composition).
 type RefPage struct {
 	Slug    string
 	Title   string
 	Summary string
 	Order   int
 	Body    string
+}
+
+// Layer is a product layer with its primitives.
+type Layer struct {
+	Number     int
+	Name       string
+	Gap        string
+	Transition string
+	Primitives []Primitive
+}
+
+// Primitive is an individual cognitive primitive.
+type Primitive struct {
+	Name         string
+	Slug         string
+	Layer        int    // -1 for agent primitives
+	LayerName    string
+	Group        string
+	Description  string
+	SubscribesTo string
+	Emits        string
+	DependsOn    string
+	State        string
+	Intelligent  string
 }
 
 templ BlogIndex(posts []Post) {
