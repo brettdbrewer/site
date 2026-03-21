@@ -12,6 +12,7 @@ import (
 
 	"github.com/lovyou-ai/site/content"
 	"github.com/lovyou-ai/site/views"
+	"github.com/lovyou-ai/site/work"
 )
 
 func main() {
@@ -112,6 +113,24 @@ func main() {
 		}
 		http.NotFound(w, r)
 	})
+
+	// Work product.
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn != "" {
+		workStore, err := work.New(dsn)
+		if err != nil {
+			log.Fatalf("work store: %v", err)
+		}
+		defer workStore.Close()
+		workHandlers := work.NewHandlers(workStore)
+		workHandlers.Register(mux)
+		log.Println("work product enabled (DATABASE_URL set)")
+	} else {
+		log.Println("work product disabled (no DATABASE_URL)")
+		mux.HandleFunc("GET /work", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Work product requires DATABASE_URL", http.StatusServiceUnavailable)
+		})
+	}
 
 	// Health check for Fly.io.
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
