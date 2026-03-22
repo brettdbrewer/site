@@ -605,7 +605,7 @@ templ ConversationsView(space Space, spaces []Space, convos []Node, user ViewUse
 			}
 			<div class="space-y-2">
 				for _, convo := range convos {
-					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", space.Slug, convo.ID)) }
+					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/conversation/%s", space.Slug, convo.ID)) }
 						class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/40 hover:shadow transition-all">
 						<div class="flex items-center justify-between mb-1">
 							<h3 class="font-medium text-warm">{ convo.Title }</h3>
@@ -630,6 +630,100 @@ templ ConversationsView(space Space, spaces []Space, convos []Node, user ViewUse
 			</div>
 		</div>
 	}
+}
+
+// ── Conversation detail view ────────────────────────────────────
+
+templ ConversationDetailView(space Space, convo Node, messages []Node, user ViewUser) {
+	@appLayout(space, []Space{space}, "conversations", user) {
+		<div class="flex flex-col h-full">
+			<!-- Conversation header -->
+			<div class="border-b border-edge bg-surface px-6 py-3 flex-shrink-0">
+				<div class="max-w-2xl mx-auto flex items-center justify-between">
+					<div>
+						<div class="flex items-center gap-2">
+							<a href={ templ.SafeURL("/app/" + space.Slug + "/conversations") } class="text-warm-faint hover:text-brand transition-colors">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+								</svg>
+							</a>
+							<h1 class="text-lg font-medium text-warm">{ convo.Title }</h1>
+						</div>
+						<div class="flex items-center gap-1 mt-0.5 text-xs text-warm-faint">
+							for i, tag := range convo.Tags {
+								if i > 0 {
+									<span>·</span>
+								}
+								<span class="text-warm-muted">{ tag }</span>
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Messages -->
+			<div id="messages" class="flex-1 overflow-y-auto px-6 py-4">
+				<div class="max-w-2xl mx-auto space-y-3">
+					if len(messages) == 0 {
+						<p class="text-center text-warm-faint py-12">No messages yet. Start the conversation!</p>
+					}
+					for _, msg := range messages {
+						@chatMessage(msg, user.Name)
+					}
+				</div>
+			</div>
+
+			<!-- Message input -->
+			if user.Name != "" && user.Name != "Anonymous" {
+				<div class="border-t border-edge bg-surface px-6 py-3 flex-shrink-0">
+					<form
+						class="max-w-2xl mx-auto flex gap-2"
+						method="POST"
+						action={ templ.SafeURL("/app/" + space.Slug + "/op") }
+						hx-post={ "/app/" + space.Slug + "/op" }
+						hx-target="#messages .max-w-2xl"
+						hx-swap="beforeend"
+						hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight; }"
+					>
+						<input type="hidden" name="op" value="respond"/>
+						<input type="hidden" name="parent_id" value={ convo.ID }/>
+						<input type="text" name="body" placeholder="Write a message..." required autocomplete="off"
+							class="flex-1 px-4 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm text-warm placeholder-warm-faint"/>
+						<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Send</button>
+					</form>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ chatMessage(msg Node, currentUser string) {
+	<div class={ "flex gap-3", templ.KV("flex-row-reverse", msg.Author == currentUser) }>
+		if msg.AuthorKind == "agent" {
+			<span class="w-8 h-8 rounded-full bg-violet-500/10 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0" title="Agent">
+				{ initial(msg.Author) }
+			</span>
+		} else {
+			<span class={ "w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0",
+				templ.KV("bg-brand/10 text-brand", msg.Author == currentUser),
+				templ.KV("bg-elevated text-warm-muted", msg.Author != currentUser) }>
+				{ initial(msg.Author) }
+			</span>
+		}
+		<div class={ "max-w-[75%] rounded-lg px-4 py-2.5",
+			templ.KV("bg-brand/10 border border-brand/20", msg.Author == currentUser),
+			templ.KV("bg-surface border border-edge", msg.Author != currentUser && msg.AuthorKind != "agent"),
+			templ.KV("bg-violet-500/5 border border-violet-500/20", msg.AuthorKind == "agent") }>
+			<div class="flex items-center gap-1.5 mb-1">
+				<span class="text-xs font-medium text-warm">{ msg.Author }</span>
+				if msg.AuthorKind == "agent" {
+					<span class="text-[9px] font-medium px-1 py-0.5 rounded-full bg-violet-500/10 text-violet-400">agent</span>
+				}
+				<span class="text-[10px] text-warm-faint ml-auto">{ msg.CreatedAt.Format("3:04 PM") }</span>
+			</div>
+			<p class="text-sm text-warm-secondary whitespace-pre-wrap">{ msg.Body }</p>
+		</div>
+	</div>
 }
 
 // ── People view ─────────────────────────────────────────────────

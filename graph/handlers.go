@@ -67,6 +67,9 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /app/{slug}/people", h.readWrap(h.handlePeople))
 	mux.Handle("GET /app/{slug}/activity", h.readWrap(h.handleActivity))
 
+	// Conversation detail (optional auth).
+	mux.Handle("GET /app/{slug}/conversation/{id}", h.readWrap(h.handleConversationDetail))
+
 	// Node detail (optional auth — public spaces readable by anyone).
 	mux.Handle("GET /app/{slug}/node/{id}", h.readWrap(h.handleNodeDetail))
 
@@ -565,6 +568,46 @@ func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
 // Node detail
 // ────────────────────────────────────────────────────────────────────
 
+func (h *Handlers) handleConversationDetail(w http.ResponseWriter, r *http.Request) {
+	space, _, err := h.spaceForRead(r)
+	if errors.Is(err, ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	nodeID := r.PathValue("id")
+	node, err := h.store.GetNode(r.Context(), nodeID)
+	if errors.Is(err, ErrNotFound) || (err == nil && node.Kind != KindConversation) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	messages, err := h.store.ListNodes(r.Context(), ListNodesParams{
+		SpaceID:  space.ID,
+		ParentID: nodeID,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "conversation": node, "messages": messages})
+		return
+	}
+
+	user := h.viewUser(r)
+	ConversationDetailView(*space, *node, messages, user).Render(r.Context(), w)
+}
+
 func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
@@ -776,10 +819,19 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if isHTMX(r) {
-			CommentItem(*node).Render(ctx, w)
+			parent, _ := h.store.GetNode(ctx, parentID)
+			if parent != nil && parent.Kind == KindConversation {
+				chatMessage(*node, actor).Render(ctx, w)
+			} else {
+				CommentItem(*node).Render(ctx, w)
+			}
 			return
 		}
-		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, parentID), http.StatusSeeOther)
+		if parent, _ := h.store.GetNode(ctx, parentID); parent != nil && parent.Kind == KindConversation {
+			http.Redirect(w, r, fmt.Sprintf("/app/%s/conversation/%s", space.Slug, parentID), http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, parentID), http.StatusSeeOther)
+		}
 
 	case "complete":
 		nodeID := r.FormValue("node_id")
