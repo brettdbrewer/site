@@ -585,7 +585,7 @@ templ ThreadsView(space Space, spaces []Space, threads []Node, user ViewUser, is
 
 // ── Conversations view ──────────────────────────────────────────
 
-templ ConversationsView(space Space, spaces []Space, convos []Node, user ViewUser) {
+templ ConversationsView(space Space, spaces []Space, convos []ConversationSummary, user ViewUser) {
 	@appLayout(space, spaces, "conversations", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
@@ -614,7 +614,17 @@ templ ConversationsView(space Space, spaces []Space, convos []Node, user ViewUse
 							<h3 class="font-medium text-warm">{ convo.Title }</h3>
 							<span class="text-xs text-warm-faint">{ fmt.Sprintf("%d messages", convo.ChildCount) }</span>
 						</div>
-						<div class="flex items-center gap-2 text-xs text-warm-faint">
+						if convo.LastBody != "" {
+							<p class="text-sm text-warm-muted mt-1 line-clamp-1">
+								if convo.LastAuthorKind == "agent" {
+									<span class="text-violet-400">{ convo.LastAuthor }:</span>
+								} else {
+									<span class="text-warm-faint">{ convo.LastAuthor }:</span>
+								}
+								{ " " + truncate(convo.LastBody, 120) }
+							</p>
+						}
+						<div class="flex items-center gap-2 text-xs text-warm-faint mt-1">
 							<div class="flex items-center gap-1">
 								for i, tag := range convo.Tags {
 									if i > 0 {
@@ -1505,6 +1515,13 @@ func countDone(nodes []Node) int {
 		}
 	}
 	return n
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
 }
 
 func lastMessageTS(messages []Node) string {

@@ -494,6 +494,7 @@ func (h *Handlers) handleConversations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ConversationsView(*space, spaces, convos, h.viewUser(r)).Render(r.Context(), w)
+
 }
 
 func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
