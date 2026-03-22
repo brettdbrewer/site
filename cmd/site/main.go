@@ -2,14 +2,17 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 
 	_ "github.com/lib/pq"
 
@@ -198,6 +201,17 @@ func main() {
 		graphHandlers := graph.NewHandlers(graphStore, readWrap, writeWrap)
 		graphHandlers.Register(mux)
 		log.Println("app enabled (DATABASE_URL set)")
+
+		// Start Mind auto-reply if Claude token is set.
+		if claudeToken := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"); claudeToken != "" {
+			mind := graph.NewMind(db, graphStore, claudeToken)
+			mindCtx, mindCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer mindCancel()
+			go mind.Run(mindCtx)
+			log.Println("mind enabled (CLAUDE_CODE_OAUTH_TOKEN set)")
+		} else {
+			log.Println("mind disabled (no CLAUDE_CODE_OAUTH_TOKEN)")
+		}
 
 		// Home: redirect logged-in users to /app, show landing for anonymous.
 		mux.Handle("GET /{$}", readWrap(func(w http.ResponseWriter, r *http.Request) {

@@ -11,7 +11,8 @@ RUN templ generate
 RUN CGO_ENABLED=0 go build -o /site ./cmd/site/
 
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates nodejs npm
+RUN npm install -g @anthropic-ai/claude-code
 COPY --from=builder /site /site
 COPY --from=builder /app/static /static
 
