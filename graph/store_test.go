@@ -389,6 +389,94 @@ func TestDependencies(t *testing.T) {
 	}
 }
 
+func TestMembership(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, _ := store.CreateSpace(ctx, "test-membership", "Membership Test", "", "owner-1", "project", "public")
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	// Not a member initially.
+	if store.IsMember(ctx, space.ID, "user-1") {
+		t.Error("should not be a member initially")
+	}
+	if store.MemberCount(ctx, space.ID) != 0 {
+		t.Errorf("member count = %d, want 0", store.MemberCount(ctx, space.ID))
+	}
+
+	// Join.
+	if err := store.JoinSpace(ctx, space.ID, "user-1", "Alice"); err != nil {
+		t.Fatalf("join: %v", err)
+	}
+	if !store.IsMember(ctx, space.ID, "user-1") {
+		t.Error("should be a member after joining")
+	}
+	if store.MemberCount(ctx, space.ID) != 1 {
+		t.Errorf("member count = %d, want 1", store.MemberCount(ctx, space.ID))
+	}
+
+	// Duplicate join is a no-op.
+	store.JoinSpace(ctx, space.ID, "user-1", "Alice")
+	if store.MemberCount(ctx, space.ID) != 1 {
+		t.Errorf("member count = %d, want 1 after duplicate join", store.MemberCount(ctx, space.ID))
+	}
+
+	// Leave.
+	store.LeaveSpace(ctx, space.ID, "user-1")
+	if store.IsMember(ctx, space.ID, "user-1") {
+		t.Error("should not be a member after leaving")
+	}
+}
+
+func TestAvailableTasks(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, _ := store.CreateSpace(ctx, "test-market", "Market Test", "", "owner-1", "project", "public")
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	// Create an open, unassigned task.
+	store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: space.ID, Kind: KindTask, Title: "Available Task",
+		Author: "tester", AuthorID: "tester-id", State: StateOpen,
+	})
+	// Create an assigned task (should not appear).
+	store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: space.ID, Kind: KindTask, Title: "Taken Task",
+		Author: "tester", AuthorID: "tester-id", State: StateOpen, Assignee: "someone",
+	})
+
+	tasks, err := store.ListAvailableTasks(ctx, "", 50)
+	if err != nil {
+		t.Fatalf("list available: %v", err)
+	}
+
+	found := false
+	for _, task := range tasks {
+		if task.Title == "Available Task" {
+			found = true
+		}
+		if task.Title == "Taken Task" {
+			t.Error("assigned task should not appear in available list")
+		}
+	}
+	if !found {
+		t.Error("should find the available task")
+	}
+
+	// Search.
+	tasks, _ = store.ListAvailableTasks(ctx, "Available", 50)
+	if len(tasks) == 0 {
+		t.Error("search should find the task")
+	}
+	tasks, _ = store.ListAvailableTasks(ctx, "nonexistent", 50)
+	for _, task := range tasks {
+		if task.Title == "Available Task" {
+			t.Error("search for nonexistent should not find the task")
+		}
+	}
+}
+
 func TestPublicSpaces(t *testing.T) {
 	_, store := testDB(t)
 	ctx := context.Background()
