@@ -15,8 +15,8 @@ import (
 
 	"github.com/lovyou-ai/site/auth"
 	"github.com/lovyou-ai/site/content"
+	"github.com/lovyou-ai/site/graph"
 	"github.com/lovyou-ai/site/views"
-	"github.com/lovyou-ai/site/work"
 )
 
 func main() {
@@ -118,7 +118,7 @@ func main() {
 		http.NotFound(w, r)
 	})
 
-	// Work product with auth.
+	// Unified product with auth.
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn != "" {
 		db, err := sql.Open("postgres", dsn)
@@ -136,7 +136,6 @@ func main() {
 		clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 
 		if clientID != "" && clientSecret != "" {
-			// Derive redirect URL: use AUTH_REDIRECT_URL or default to /auth/callback.
 			redirectURL := os.Getenv("AUTH_REDIRECT_URL")
 			if redirectURL == "" {
 				redirectURL = "https://lovyou.ai/auth/callback"
@@ -151,7 +150,6 @@ func main() {
 			wrap = authService.RequireAuth
 			log.Println("auth enabled (Google OAuth)")
 		} else {
-			// Dev mode: no auth, inject anonymous user.
 			wrap = func(next http.HandlerFunc) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					ctx := auth.ContextWithUser(r.Context(), &auth.User{
@@ -163,17 +161,25 @@ func main() {
 			log.Println("auth disabled (no GOOGLE_CLIENT_ID) — anonymous mode")
 		}
 
-		workStore, err := work.NewWithDB(db)
+		graphStore, err := graph.NewStore(db)
 		if err != nil {
-			log.Fatalf("work store: %v", err)
+			log.Fatalf("graph store: %v", err)
 		}
-		workHandlers := work.NewHandlers(workStore, wrap)
-		workHandlers.Register(mux)
-		log.Println("work product enabled (DATABASE_URL set)")
-	} else {
-		log.Println("work product disabled (no DATABASE_URL)")
+		graphHandlers := graph.NewHandlers(graphStore, wrap)
+		graphHandlers.Register(mux)
+		log.Println("app enabled (DATABASE_URL set)")
+
+		// Redirect old /work to /app.
 		mux.HandleFunc("GET /work", func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "Work product requires DATABASE_URL", http.StatusServiceUnavailable)
+			http.Redirect(w, r, "/app", http.StatusMovedPermanently)
+		})
+	} else {
+		log.Println("app disabled (no DATABASE_URL)")
+		mux.HandleFunc("GET /app", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "App requires DATABASE_URL", http.StatusServiceUnavailable)
+		})
+		mux.HandleFunc("GET /work", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/app", http.StatusMovedPermanently)
 		})
 	}
 

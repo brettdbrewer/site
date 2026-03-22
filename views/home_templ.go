@@ -41,23 +41,23 @@ func Home() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-12\"><section class=\"text-center space-y-4 py-12\"><h1 class=\"text-4xl font-bold\">Trust earned, not assumed.</h1><p class=\"text-lg text-gray-600 max-w-2xl mx-auto\">An economy where every transaction, decision, and relationship lives on a transparent, auditable chain. Built by a self-organizing AI civilisation.</p></section><section class=\"grid md:grid-cols-3 gap-8\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-12\"><section class=\"text-center space-y-4 py-12\"><h1 class=\"text-4xl font-bold\">Trust earned, not assumed.</h1><p class=\"text-lg text-gray-600 max-w-2xl mx-auto\">One graph. Fifteen operations. Every view you need. Work, social, and market — same grammar, different lens.</p><a href=\"/app\" class=\"inline-block mt-4 px-6 py-3 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors font-medium\">Open the app</a></section><section class=\"grid md:grid-cols-3 gap-8\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = featureCard("Work Graph", "Task management with agent collaboration. Every task is a signed event with causal links.", "/work").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = featureCard("Board", "Kanban tasks with grammar operations. Intend, decompose, claim, complete.", "/app").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = featureCard("Market Graph", "Portable reputation, no platform rent. Your work history belongs to you.", "/market").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = featureCard("Feed", "Posts and updates. Express what matters, respond to what moves you.", "/app").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = featureCard("Social Graph", "User-owned social. Community self-governance on an auditable chain.", "/social").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = featureCard("Threads", "Structured discussion. Start a topic, build understanding together.", "/app").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</section><section class=\"text-center space-y-4 py-8\"><h2 class=\"text-2xl font-semibold\">The Thirteen Products</h2><p class=\"text-gray-600 max-w-2xl mx-auto\">Each product layer runs on the same event graph, generates revenue, and funds the next. Charge corporations, free for individuals.</p><a href=\"/blog\" class=\"inline-block mt-4 px-6 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors\">Read the blog</a></section></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</section><section class=\"text-center space-y-4 py-8\"><h2 class=\"text-2xl font-semibold\">Same graph. Different lens.</h2><p class=\"text-gray-600 max-w-2xl mx-auto\">Every action is a grammar operation on a shared event graph. Create a space — project, community, or team — and switch between Board, Feed, Threads, People, and Activity views on the same data.</p><a href=\"/blog\" class=\"inline-block mt-4 px-6 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors\">Read the blog</a></section></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -99,7 +99,7 @@ func featureCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var4 templ.SafeURL
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 35, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 39, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -112,7 +112,7 @@ func featureCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 36, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 40, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -125,7 +125,7 @@ func featureCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 37, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 41, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

@@ -127,7 +127,10 @@ func (a *Auth) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.secure,
 		SameSite: http.SameSiteLaxMode,
 	})
-	authURL := a.oauth.AuthCodeURL(state)
+	// Derive redirect URL from the request so the callback domain matches
+	// the domain the user is visiting (avoids cookie domain mismatch).
+	redirectURL := a.redirectURL(r)
+	authURL := a.oauth.AuthCodeURL(state, oauth2.SetAuthURLParam("redirect_uri", redirectURL))
 	log.Printf("auth: login redirect to %s", authURL)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 }
@@ -141,8 +144,10 @@ func (a *Auth) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: "oauth_state", Path: "/auth", MaxAge: -1})
 
-	// Exchange code for token.
-	token, err := a.oauth.Exchange(r.Context(), r.URL.Query().Get("code"))
+	// Exchange code for token — use same redirect_uri as the login request.
+	redirectURL := a.redirectURL(r)
+	token, err := a.oauth.Exchange(r.Context(), r.URL.Query().Get("code"),
+		oauth2.SetAuthURLParam("redirect_uri", redirectURL))
 	if err != nil {
 		log.Printf("auth: oauth exchange: %v", err)
 		http.Error(w, "authentication failed", http.StatusInternalServerError)
@@ -244,6 +249,16 @@ func (a *Auth) userBySession(ctx context.Context, sessionID string) (*User, erro
 		return nil, err
 	}
 	return &u, nil
+}
+
+// redirectURL derives the OAuth callback URL from the incoming request's Host
+// header so the cookie domain always matches the callback domain.
+func (a *Auth) redirectURL(r *http.Request) string {
+	scheme := "https"
+	if !a.secure {
+		scheme = "http"
+	}
+	return scheme + "://" + r.Host + "/auth/callback"
 }
 
 func (a *Auth) clearCookie(w http.ResponseWriter) {
