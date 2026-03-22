@@ -40,15 +40,15 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 		</head>
 		<body class="bg-void text-warm-secondary min-h-screen flex flex-col">
 			<header class="border-b border-edge bg-surface flex-shrink-0">
-				<nav class="px-6 py-3 flex items-center justify-between">
-					<div class="flex items-center gap-4">
-						<a href="/" class="text-xl font-bold text-brand">lovyou.ai</a>
+				<nav class="px-4 md:px-6 py-3 flex items-center justify-between">
+					<div class="flex items-center gap-2 md:gap-4 min-w-0">
+						<a href="/" class="text-xl font-bold text-brand flex-shrink-0">lovyou.ai</a>
+						<span class="text-warm-faint hidden md:inline">/</span>
+						<a href="/app" class="text-sm font-medium hover:text-brand transition-colors text-warm-muted hidden md:inline">App</a>
 						<span class="text-warm-faint">/</span>
-						<a href="/app" class="text-sm font-medium hover:text-brand transition-colors text-warm-muted">App</a>
-						<span class="text-warm-faint">/</span>
-						<span class="text-sm text-warm-secondary">{ space.Name }</span>
+						<span class="text-sm text-warm-secondary truncate">{ space.Name }</span>
 					</div>
-					<div class="flex items-center gap-6 text-sm text-warm-muted">
+					<div class="hidden md:flex items-center gap-6 text-sm text-warm-muted">
 						<a href="/" class="hover:text-brand transition-colors">Home</a>
 						<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
 						<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
@@ -71,6 +71,17 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 					</div>
 				</nav>
 			</header>
+			<!-- Mobile lens bar -->
+			<nav class="md:hidden border-b border-edge bg-surface overflow-x-auto flex-shrink-0">
+				<div class="flex px-2 py-1.5 gap-1">
+					@mobileLensTab(space.Slug, "board", "Board", activeLens)
+					@mobileLensTab(space.Slug, "feed", "Feed", activeLens)
+					@mobileLensTab(space.Slug, "threads", "Threads", activeLens)
+					@mobileLensTab(space.Slug, "people", "People", activeLens)
+					@mobileLensTab(space.Slug, "activity", "Activity", activeLens)
+					@mobileLensTab(space.Slug, "settings", "Settings", activeLens)
+				</div>
+			</nav>
 			<div class="flex flex-1 overflow-hidden">
 				<!-- Sidebar -->
 				<aside class="w-60 border-r border-edge bg-surface flex-shrink-0 overflow-y-auto hidden md:block">
@@ -132,6 +143,17 @@ templ lensLink(spaceSlug, lens, label, activeLens string, icon templ.Component) 
 			templ.KV("hover:bg-elevated text-warm-muted", lens != activeLens) }
 	>
 		@icon
+		{ label }
+	</a>
+}
+
+templ mobileLensTab(spaceSlug, lens, label, activeLens string) {
+	<a
+		href={ templ.SafeURL("/app/" + spaceSlug + "/" + lens) }
+		class={ "px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors",
+			templ.KV("bg-brand/10 text-brand", lens == activeLens),
+			templ.KV("text-warm-muted hover:text-warm hover:bg-elevated", lens != activeLens) }
+	>
 		{ label }
 	</a>
 }
@@ -302,10 +324,10 @@ templ SpaceOnboarding(user ViewUser) {
 
 templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool) {
 	@appLayout(space, spaces, "board", user) {
-		<div class="p-6 h-full flex flex-col">
-			<div class="flex items-center justify-between mb-6">
-				<div class="flex items-center gap-4">
-					<h1 class="text-xl font-medium text-warm">{ space.Name }</h1>
+		<div class="p-4 md:p-6 h-full flex flex-col">
+			<div class="flex items-center justify-between mb-4 md:mb-6 gap-2">
+				<div class="flex items-center gap-4 min-w-0">
+					<h1 class="text-lg md:text-xl font-medium text-warm truncate">{ space.Name }</h1>
 					if space.Description != "" {
 						<p class="text-sm text-warm-faint hidden lg:block">{ space.Description }</p>
 					}
@@ -961,9 +983,20 @@ templ CommentItem(node Node) {
 
 templ simpleHeader(user ViewUser) {
 	<header class="border-b border-edge bg-surface">
-		<nav class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+		<nav class="max-w-4xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
 			<a href="/" class="text-xl font-bold text-brand">lovyou.ai</a>
-			<div class="flex items-center gap-6 text-sm text-warm-muted">
+			<!-- Mobile: compact links -->
+			<div class="flex md:hidden items-center gap-4 text-sm text-warm-muted">
+				<a href="/app" class="hover:text-brand transition-colors">App</a>
+				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
+				if user.Name != "" && user.Name != "Anonymous" {
+					if user.Picture != "" {
+						<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
+					}
+				}
+			</div>
+			<!-- Desktop: full links -->
+			<div class="hidden md:flex items-center gap-6 text-sm text-warm-muted">
 				<a href="/" class="hover:text-brand transition-colors">Home</a>
 				<a href="/app" class="hover:text-brand transition-colors">App</a>
 				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
