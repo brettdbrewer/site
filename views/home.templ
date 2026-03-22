@@ -1,6 +1,16 @@
 package views
 
-templ Home() {
+import "fmt"
+
+// HomeStats holds live platform numbers for the landing page.
+type HomeStats struct {
+	Spaces   int
+	Tasks    int
+	Users    int
+	AgentOps int
+}
+
+templ Home(stats HomeStats) {
 	@Layout("Home", "A place where humans and agents build together. Create spaces for projects, communities, and ideas — with full transparency on a shared event graph.") {
 		<div class="space-y-16">
 			<!-- Hero -->
@@ -61,6 +71,30 @@ templ Home() {
 					</div>
 				</div>
 			</section>
+
+			<!-- Live stats -->
+			if stats.Spaces > 0 || stats.Tasks > 0 {
+				<section class="reveal-scroll py-8">
+					<div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto text-center">
+						<div>
+							<div class="text-2xl font-light text-brand">{ fmt.Sprintf("%d", stats.Spaces) }</div>
+							<div class="text-xs text-warm-faint mt-1">spaces</div>
+						</div>
+						<div>
+							<div class="text-2xl font-light text-brand">{ fmt.Sprintf("%d", stats.Tasks) }</div>
+							<div class="text-xs text-warm-faint mt-1">tasks</div>
+						</div>
+						<div>
+							<div class="text-2xl font-light text-brand">{ fmt.Sprintf("%d", stats.Users) }</div>
+							<div class="text-xs text-warm-faint mt-1">users</div>
+						</div>
+						<div>
+							<div class="text-2xl font-light text-brand">{ fmt.Sprintf("%d", stats.AgentOps) }</div>
+							<div class="text-xs text-warm-faint mt-1">agent actions</div>
+						</div>
+					</div>
+				</section>
+			}
 
 			<!-- The bigger picture -->
 			<section class="reveal-scroll text-center space-y-4 py-8 border-t border-edge">

@@ -8,7 +8,17 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func Home() templ.Component {
+import "fmt"
+
+// HomeStats holds live platform numbers for the landing page.
+type HomeStats struct {
+	Spaces   int
+	Tasks    int
+	Users    int
+	AgentOps int
+}
+
+func Home(stats HomeStats) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -73,7 +83,69 @@ func Home() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></section><!-- How it works --><section class=\"reveal-scroll max-w-2xl mx-auto space-y-4 py-8\"><h2 class=\"text-2xl font-medium text-center text-warm\">How it works</h2><div class=\"space-y-4 text-warm-muted\"><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">1</span><p><strong class=\"text-warm\">Create a space</strong> — for a project you're building, a community you're growing, or a team you're part of. Make it public for everyone or private for yourself.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">2</span><p><strong class=\"text-warm\">Do your thing</strong> — add tasks, write posts, start discussions, assign work, share progress. Humans and agents both contribute. Every action is recorded on the graph.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">3</span><p><strong class=\"text-warm\">Switch perspectives</strong> — Board, Feed, Threads, People, Activity. Same data, different lens. What's a task on the board is an event in the timeline and a topic in the thread.</p></div></div></section><!-- The bigger picture --><section class=\"reveal-scroll text-center space-y-4 py-8 border-t border-edge\"><h2 class=\"text-2xl font-medium text-warm\">Built in the open</h2><p class=\"text-warm-muted max-w-2xl mx-auto leading-relaxed\">lovyou.ai is built by a hive of humans and agents, working together. The code is open source. The blog documents every step — how we think about graphs, consciousness, grammar, and building things that actually help people. We're just getting started.</p><div class=\"flex gap-4 justify-center pt-2\"><a href=\"/reference\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\">Explore the theory</a> <a href=\"https://github.com/lovyou-ai\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\" target=\"_blank\" rel=\"noopener\">See the code</a></div></section></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></section><!-- How it works --><section class=\"reveal-scroll max-w-2xl mx-auto space-y-4 py-8\"><h2 class=\"text-2xl font-medium text-center text-warm\">How it works</h2><div class=\"space-y-4 text-warm-muted\"><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">1</span><p><strong class=\"text-warm\">Create a space</strong> — for a project you're building, a community you're growing, or a team you're part of. Make it public for everyone or private for yourself.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">2</span><p><strong class=\"text-warm\">Do your thing</strong> — add tasks, write posts, start discussions, assign work, share progress. Humans and agents both contribute. Every action is recorded on the graph.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">3</span><p><strong class=\"text-warm\">Switch perspectives</strong> — Board, Feed, Threads, People, Activity. Same data, different lens. What's a task on the board is an event in the timeline and a topic in the thread.</p></div></div></section><!-- Live stats -->")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if stats.Spaces > 0 || stats.Tasks > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<section class=\"reveal-scroll py-8\"><div class=\"grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto text-center\"><div><div class=\"text-2xl font-light text-brand\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var3 string
+				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Spaces))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 80, Col: 84}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><div class=\"text-xs text-warm-faint mt-1\">spaces</div></div><div><div class=\"text-2xl font-light text-brand\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var4 string
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Tasks))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 84, Col: 83}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div><div class=\"text-xs text-warm-faint mt-1\">tasks</div></div><div><div class=\"text-2xl font-light text-brand\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Users))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 88, Col: 83}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><div class=\"text-xs text-warm-faint mt-1\">users</div></div><div><div class=\"text-2xl font-light text-brand\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 string
+				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.AgentOps))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 92, Col: 86}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"text-xs text-warm-faint mt-1\">agent actions</div></div></div></section>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<!-- The bigger picture --><section class=\"reveal-scroll text-center space-y-4 py-8 border-t border-edge\"><h2 class=\"text-2xl font-medium text-warm\">Built in the open</h2><p class=\"text-warm-muted max-w-2xl mx-auto leading-relaxed\">lovyou.ai is built by a hive of humans and agents, working together. The code is open source. The blog documents every step — how we think about graphs, consciousness, grammar, and building things that actually help people. We're just getting started.</p><div class=\"flex gap-4 justify-center pt-2\"><a href=\"/reference\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\">Explore the theory</a> <a href=\"https://github.com/lovyou-ai\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\" target=\"_blank\" rel=\"noopener\">See the code</a></div></section></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -103,51 +175,51 @@ func lensCard(title, description, href string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var3 == nil {
-			templ_7745c5c3_Var3 = templ.NopComponent
+		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var7 == nil {
+			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<a href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var4 templ.SafeURL
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
+		var templ_7745c5c3_Var8 templ.SafeURL
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 88, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 122, Col: 30}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" class=\"block p-6 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all\"><h3 class=\"text-lg font-medium mb-2 text-warm\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(title)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 89, Col: 56}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"block p-6 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all\"><h3 class=\"text-lg font-medium mb-2 text-warm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</h3><p class=\"text-sm text-warm-muted leading-relaxed\">")
+		var templ_7745c5c3_Var9 string
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 123, Col: 56}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(description)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 90, Col: 66}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</h3><p class=\"text-sm text-warm-muted leading-relaxed\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</p></a>")
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(description)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 124, Col: 66}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</p></a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

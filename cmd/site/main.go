@@ -208,14 +208,18 @@ func main() {
 			log.Println("mind disabled (no CLAUDE_CODE_OAUTH_TOKEN)")
 		}
 
-		// Home: redirect logged-in users to /app, show landing for anonymous.
+		// Home: redirect logged-in users to /app, show landing with live stats for anonymous.
 		mux.Handle("GET /{$}", readWrap(func(w http.ResponseWriter, r *http.Request) {
 			user := auth.UserFromContext(r.Context())
 			if user != nil && user.ID != "anonymous" {
 				http.Redirect(w, r, "/app", http.StatusSeeOther)
 				return
 			}
-			handleHome(w, r)
+			ps := graphStore.GetPlatformStats(r.Context())
+			views.Home(views.HomeStats{
+				Spaces: ps.Spaces, Tasks: ps.Tasks,
+				Users: ps.Users, AgentOps: ps.AgentOps,
+			}).Render(r.Context(), w)
 		}))
 
 		// Redirect old /work to /app.
@@ -451,7 +455,7 @@ func noCache(next http.Handler) http.Handler {
 
 func makeHandlers(posts []views.Post) (home, blogIndex, blogPost http.HandlerFunc) {
 	home = func(w http.ResponseWriter, r *http.Request) {
-		views.Home().Render(r.Context(), w)
+		views.Home(views.HomeStats{}).Render(r.Context(), w)
 	}
 	blogIndex = func(w http.ResponseWriter, r *http.Request) {
 		views.BlogIndex(posts).Render(r.Context(), w)

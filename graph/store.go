@@ -888,6 +888,23 @@ func (s *Store) ListNodeOps(ctx context.Context, nodeID string) ([]Op, error) {
 // Helpers
 // ────────────────────────────────────────────────────────────────────
 
+// PlatformStats returns aggregate counts for the platform.
+type PlatformStats struct {
+	Spaces     int
+	Tasks      int
+	Users      int
+	AgentOps   int
+}
+
+func (s *Store) GetPlatformStats(ctx context.Context) PlatformStats {
+	var stats PlatformStats
+	s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM spaces WHERE visibility = 'public'`).Scan(&stats.Spaces)
+	s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM nodes WHERE kind = 'task'`).Scan(&stats.Tasks)
+	s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&stats.Users)
+	s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ops o JOIN users u ON u.id = o.actor_id WHERE u.kind = 'agent'`).Scan(&stats.AgentOps)
+	return stats
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Space Membership
 // ────────────────────────────────────────────────────────────────────
