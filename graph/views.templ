@@ -894,7 +894,7 @@ templ PeopleView(space Space, spaces []Space, members []Member, user ViewUser) {
 									{ initial(m.Name) }
 								</span>
 							}
-							<span class="text-sm font-medium text-warm">{ m.Name }</span>
+							<a href={ templ.SafeURL("/user/" + m.Name) } class="text-sm font-medium text-warm hover:text-brand transition-colors">{ m.Name }</a>
 							if m.Kind == "agent" {
 								<span class="text-[9px] font-medium px-1 py-0.5 rounded-full bg-violet-500/10 text-violet-400">agent</span>
 							}
