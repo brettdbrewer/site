@@ -197,6 +197,56 @@ func main() {
 		fmt.Fprint(w, "ok")
 	})
 
+	// Robots and sitemap.
+	mux.HandleFunc("GET /robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, "User-agent: *\nAllow: /\nSitemap: https://lovyou.ai/sitemap.xml\n")
+	})
+	mux.HandleFunc("GET /sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		var b strings.Builder
+		b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
+		b.WriteString("\n")
+		b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`)
+		b.WriteString("\n")
+		addURL := func(path string) {
+			b.WriteString("<url><loc>https://lovyou.ai")
+			b.WriteString(path)
+			b.WriteString("</loc></url>\n")
+		}
+		// Static pages.
+		addURL("/")
+		addURL("/blog")
+		addURL("/reference")
+		addURL("/reference/grammar")
+		addURL("/reference/cognitive-grammar")
+		addURL("/reference/grammars")
+		addURL("/reference/agents")
+		// Blog posts.
+		for _, post := range posts {
+			addURL("/blog/" + post.Slug)
+		}
+		// Layers.
+		for _, layer := range layers {
+			addURL(fmt.Sprintf("/reference/layers/%d", layer.Number))
+		}
+		// Primitives.
+		for _, layer := range layers {
+			for _, prim := range layer.Primitives {
+				addURL("/reference/primitives/" + prim.Slug)
+			}
+		}
+		for _, prim := range agentPrims {
+			addURL("/reference/primitives/" + prim.Slug)
+		}
+		// Grammars.
+		for _, g := range grammars {
+			addURL("/reference/grammars/" + g.Slug)
+		}
+		b.WriteString("</urlset>\n")
+		fmt.Fprint(w, b.String())
+	})
+
 	addr := ":" + p
 	log.Printf("lovyou.ai listening on %s", addr)
 	if err := http.ListenAndServe(addr, noCache(mux)); err != nil {
