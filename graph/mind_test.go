@@ -204,6 +204,70 @@ func TestMindTaskWork(t *testing.T) {
 	// Subtasks are optional — the agent might complete the task directly.
 }
 
+// TestMindSimpleTask verifies the Mind can complete a simple task directly.
+func TestMindSimpleTask(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	token := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")
+	if dsn == "" || token == "" {
+		t.Skip("DATABASE_URL and CLAUDE_CODE_OAUTH_TOKEN required")
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	store, err := NewStore(db)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	ctx := context.Background()
+	mind := NewMind(db, store, token)
+
+	agentID := "simple-task-agent-id"
+	db.ExecContext(ctx, `DELETE FROM spaces WHERE slug = 'simple-task-test'`)
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID)
+	db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+		agentID, "agent:SimpleAgent", "simple@test.lovyou.ai", "SimpleAgent")
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM spaces WHERE slug = 'simple-task-test'`)
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID)
+	})
+
+	space, _ := store.CreateSpace(ctx, "simple-task-test", "Simple Task Test", "", "test-owner", "project", "public")
+
+	task, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:    space.ID,
+		Kind:       KindTask,
+		Title:      "Write a haiku about graphs",
+		Body:       "Write a haiku (5-7-5 syllables) about event graphs.",
+		Author:     "Matt",
+		AuthorID:   "test-human-id",
+		AuthorKind: "human",
+		Priority:   "low",
+	})
+
+	mind.OnTaskAssigned(space.ID, space.Slug, task, agentID)
+	time.Sleep(60 * time.Second)
+
+	// The task should be completed directly (no subtasks needed for a haiku).
+	updated, _ := store.GetNode(ctx, task.ID)
+	t.Logf("task status: %s", updated.State)
+
+	children, _ := store.ListNodes(ctx, ListNodesParams{SpaceID: space.ID, ParentID: task.ID})
+	for _, c := range children {
+		if c.Kind == KindComment {
+			t.Logf("deliverable: %s", c.Body)
+		}
+		if c.Kind == KindTask {
+			t.Logf("subtask: %s", c.Title)
+		}
+	}
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
