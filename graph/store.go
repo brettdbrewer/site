@@ -135,6 +135,7 @@ type ListNodesParams struct {
 	State    string     // filter by state, empty = all
 	ParentID string     // "root" = top-level only, ID = children, empty = all
 	After    *time.Time // only nodes created after this time, nil = all
+	Limit    int        // max results, 0 = default (500)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -517,6 +518,13 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 
 	query += " ORDER BY n.created_at"
 
+	limit := p.Limit
+	if limit <= 0 {
+		limit = 500
+	}
+	query += fmt.Sprintf(" LIMIT $%d", argN)
+	args = append(args, limit)
+
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list nodes: %w", err)
@@ -576,7 +584,8 @@ func (s *Store) ListConversations(ctx context.Context, spaceID, userID string) (
 		) lm ON true
 		WHERE n.space_id = $1 AND n.kind = 'conversation'
 		  AND ($2 = ANY(n.tags) OR n.author_id = $2)
-		ORDER BY n.updated_at DESC`, spaceID, userID)
+		ORDER BY n.updated_at DESC
+		LIMIT 100`, spaceID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}
