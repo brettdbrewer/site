@@ -28,6 +28,9 @@ var grammarsFS embed.FS
 //go:embed reference/fundamentals/layer-*.md
 var fundamentalsFS embed.FS
 
+//go:embed reference/grammar.md
+var baseGrammarRaw []byte
+
 var (
 	tableRow = regexp.MustCompile(`^\| \*\*(.+?)\*\* \| (.+) \|$`)
 	primMD   = goldmark.New(goldmark.WithExtensions(extension.Table))
@@ -449,4 +452,11 @@ func LoadGrammars() ([]views.RefPage, error) {
 	}
 
 	return pages, nil
+}
+
+// LoadBaseGrammar renders the base graph grammar markdown to HTML.
+func LoadBaseGrammar() string {
+	var buf bytes.Buffer
+	primMD.Convert(baseGrammarRaw, &buf)
+	return buf.String()
 }

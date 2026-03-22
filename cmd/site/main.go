@@ -62,7 +62,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("load grammars: %v", err)
 	}
-	log.Printf("loaded %d grammars", len(grammars))
+	baseGrammar := content.LoadBaseGrammar()
+	log.Printf("loaded %d grammars + base grammar", len(grammars))
 
 	// Blog handlers.
 	handleHome, handleBlogIndex, handleBlogPost := makeHandlers(posts)
@@ -79,7 +80,10 @@ func main() {
 
 	// Reference.
 	mux.HandleFunc("GET /reference", func(w http.ResponseWriter, r *http.Request) {
-		views.ReferenceIndex(layers, agentPrims).Render(r.Context(), w)
+		views.ReferenceIndex(layers, agentPrims, grammars).Render(r.Context(), w)
+	})
+	mux.HandleFunc("GET /reference/grammar", func(w http.ResponseWriter, r *http.Request) {
+		views.BaseGrammarPage(baseGrammar).Render(r.Context(), w)
 	})
 	mux.HandleFunc("GET /reference/layers/{num}", func(w http.ResponseWriter, r *http.Request) {
 		num, err := strconv.Atoi(r.PathValue("num"))
