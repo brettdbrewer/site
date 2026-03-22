@@ -48,6 +48,9 @@ You appear with a violet agent badge.
 - Keep responses concise unless depth is needed.
 - You're in a conversation thread — respond naturally, like a colleague, not a report.
 - Match the energy and register of the conversation. Strategic when strategic, casual when casual.
+- You can create tasks by including /task create commands at the end of your reply:
+  /task create {"title": "task name", "description": "what to do", "priority": "high"}
+  Tasks you create will appear on the Board and you'll automatically work on them.
 `
 
 // OnMessage is called by handlers when a message arrives in a conversation.
@@ -278,11 +281,14 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 		return fmt.Errorf("call claude: %w", err)
 	}
 
+	// Extract and execute any task commands from the response.
+	cleanResponse, tasks := extractTaskCommands(response)
+
 	node, err := m.store.CreateNode(ctx, CreateNodeParams{
 		SpaceID:    spaceID,
 		ParentID:   convo.ID,
 		Kind:       KindComment,
-		Body:       response,
+		Body:       cleanResponse,
 		Author:     agentName,
 		AuthorID:   agentID,
 		AuthorKind: "agent",
@@ -291,9 +297,61 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 		return fmt.Errorf("create node: %w", err)
 	}
 
+	// Create any tasks the Mind mentioned.
+	for _, t := range tasks {
+		taskNode, err := m.store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    spaceID,
+			Kind:       KindTask,
+			Title:      t.Title,
+			Body:       t.Description,
+			Priority:   t.Priority,
+			Assignee:   agentName,
+			Author:     agentName,
+			AuthorID:   agentID,
+			AuthorKind: "agent",
+		})
+		if err == nil {
+			m.store.RecordOp(ctx, spaceID, taskNode.ID, agentName, agentID, "intend", nil)
+			log.Printf("mind: created task %q from conversation", t.Title)
+			// Auto-work on the task.
+			go m.OnTaskAssigned(spaceID, spaceSlug, taskNode, agentID)
+		}
+	}
+
 	m.store.RecordOp(ctx, spaceID, node.ID, agentName, agentID, "respond", nil)
 	log.Printf("mind: replied to %q (node %s)", convo.Title, node.ID)
 	return nil
+}
+
+// taskCommand is a task extracted from the Mind's conversation response.
+type taskCommand struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Priority    string `json:"priority"`
+}
+
+// extractTaskCommands parses /task create commands from the Mind's response.
+// Returns the cleaned response (commands removed) and any task commands found.
+func extractTaskCommands(response string) (string, []taskCommand) {
+	var tasks []taskCommand
+	var cleaned strings.Builder
+	for _, line := range strings.Split(response, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "/task create ") {
+			jsonStr := strings.TrimPrefix(trimmed, "/task create ")
+			var t taskCommand
+			if json.Unmarshal([]byte(jsonStr), &t) == nil && t.Title != "" {
+				if t.Priority == "" {
+					t.Priority = "medium"
+				}
+				tasks = append(tasks, t)
+				continue // don't include in cleaned output
+			}
+		}
+		cleaned.WriteString(line)
+		cleaned.WriteString("\n")
+	}
+	return strings.TrimSpace(cleaned.String()), tasks
 }
 
 func (m *Mind) buildSystemPrompt(convo *Node) string {
