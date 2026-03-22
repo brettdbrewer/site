@@ -38,6 +38,37 @@ templ Layout(title, description string) {
 				}
 			</style>
 			<style>
+				/* Animations */
+				@keyframes breathe {
+					0%, 100% { opacity: 0.8; transform: scale(1); }
+					50% { opacity: 1; transform: scale(1.03); }
+				}
+				@keyframes fadeUp {
+					from { opacity: 0; transform: translateY(12px); }
+					to { opacity: 1; transform: translateY(0); }
+				}
+				.brand-breathe { animation: breathe 4s ease-in-out infinite; }
+				.reveal {
+					opacity: 0;
+					transform: translateY(12px);
+					animation: fadeUp 0.6s ease forwards;
+					animation-delay: calc(var(--d, 0) * 0.15s + 0.1s);
+				}
+				.reveal-scroll {
+					opacity: 0;
+					transform: translateY(12px);
+					transition: opacity 0.6s ease, transform 0.6s ease;
+				}
+				.reveal-scroll.in {
+					opacity: 1;
+					transform: translateY(0);
+				}
+				@media (prefers-reduced-motion: reduce) {
+					.brand-breathe { animation: none; }
+					.reveal { animation: none; opacity: 1; transform: none; }
+					.reveal-scroll { transition: none; opacity: 1; transform: none; }
+				}
+				/* Prose */
 				.prose { line-height: 1.75; color: #c8c4bc; }
 				.prose p { margin-bottom: 1.25em; }
 				.prose h2 { font-size: 1.5em; font-weight: 700; margin-top: 2em; margin-bottom: 0.75em; color: #f0ede8; }
@@ -64,7 +95,7 @@ templ Layout(title, description string) {
 		<body class="bg-void text-warm-secondary min-h-screen flex flex-col">
 			<header class="border-b border-edge bg-surface">
 				<nav class="max-w-4xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-					<a href="/" class="text-xl font-bold text-brand">lovyou.ai</a>
+					<a href="/" class="text-xl font-bold text-brand brand-breathe">lovyou.ai</a>
 					<!-- Mobile: compact -->
 					<div class="flex md:hidden gap-4 text-sm text-warm-muted">
 						<a href="/app" class="hover:text-brand transition-colors">App</a>
@@ -93,6 +124,9 @@ templ Layout(title, description string) {
 					</div>
 				</div>
 			</footer>
+			<script>
+				(function(){var e=document.querySelectorAll('.reveal-scroll');if(!e.length)return;var o=new IntersectionObserver(function(entries){entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');o.unobserve(en.target)}})},{threshold:0.1});e.forEach(function(el){o.observe(el)})})();
+			</script>
 		</body>
 	</html>
 }

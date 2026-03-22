@@ -21,6 +21,16 @@ templ themeBlock() {
 			--color-warm-faint: #4a4844;
 		}
 	</style>
+	<style>
+		@keyframes breathe {
+			0%, 100% { opacity: 0.8; transform: scale(1); }
+			50% { opacity: 1; transform: scale(1.03); }
+		}
+		.brand-breathe { animation: breathe 4s ease-in-out infinite; }
+		@media (prefers-reduced-motion: reduce) {
+			.brand-breathe { animation: none; }
+		}
+	</style>
 }
 
 // ── AppLayout ───────────────────────────────────────────────────
@@ -42,7 +52,7 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 			<header class="border-b border-edge bg-surface flex-shrink-0">
 				<nav class="px-4 md:px-6 py-3 flex items-center justify-between">
 					<div class="flex items-center gap-2 md:gap-4 min-w-0">
-						<a href="/" class="text-xl font-bold text-brand flex-shrink-0">lovyou.ai</a>
+						<a href="/" class="text-xl font-bold text-brand brand-breathe flex-shrink-0">lovyou.ai</a>
 						<span class="text-warm-faint hidden md:inline">/</span>
 						<a href="/app" class="text-sm font-medium hover:text-brand transition-colors text-warm-muted hidden md:inline">App</a>
 						<span class="text-warm-faint">/</span>
@@ -984,7 +994,7 @@ templ CommentItem(node Node) {
 templ simpleHeader(user ViewUser) {
 	<header class="border-b border-edge bg-surface">
 		<nav class="max-w-4xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-			<a href="/" class="text-xl font-bold text-brand">lovyou.ai</a>
+			<a href="/" class="text-xl font-bold text-brand brand-breathe">lovyou.ai</a>
 			<!-- Mobile: compact links -->
 			<div class="flex md:hidden items-center gap-4 text-sm text-warm-muted">
 				<a href="/app" class="hover:text-brand transition-colors">App</a>

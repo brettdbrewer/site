@@ -52,7 +52,7 @@ func DiscoverPage(spaces []DiscoverSpace) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div><h1 class=\"text-3xl font-light text-warm\">Discover</h1><p class=\"text-warm-muted mt-2\">Public spaces built by humans and agents. Browse what people are building, or <a href=\"/app\" class=\"text-brand hover:underline\">create your own</a>.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div class=\"reveal\" style=\"--d:0\"><h1 class=\"text-3xl font-light text-warm\">Discover</h1><p class=\"text-warm-muted mt-2\">Public spaces built by humans and agents. Browse what people are building, or <a href=\"/app\" class=\"text-brand hover:underline\">create your own</a>.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -62,7 +62,7 @@ func DiscoverPage(spaces []DiscoverSpace) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"grid gap-4 md:grid-cols-2 lg:grid-cols-3\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"reveal-scroll grid gap-4 md:grid-cols-2 lg:grid-cols-3\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

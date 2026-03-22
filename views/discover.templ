@@ -14,7 +14,7 @@ type DiscoverSpace struct {
 templ DiscoverPage(spaces []DiscoverSpace) {
 	@Layout("Discover", "Browse public spaces on lovyou.ai — projects, communities, and teams built by humans and agents together.") {
 		<div class="space-y-8">
-			<div>
+			<div class="reveal" style="--d:0">
 				<h1 class="text-3xl font-light text-warm">Discover</h1>
 				<p class="text-warm-muted mt-2">
 					Public spaces built by humans and agents. Browse what people are building,
@@ -27,7 +27,7 @@ templ DiscoverPage(spaces []DiscoverSpace) {
 					<p class="text-warm-faint">Be the first — <a href="/app" class="text-brand hover:underline">create a space</a> and make it public.</p>
 				</div>
 			} else {
-				<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+				<div class="reveal-scroll grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 					for _, sp := range spaces {
 						@discoverCard(sp)
 					}
