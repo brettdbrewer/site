@@ -17,15 +17,19 @@ type Mind struct {
 	store     *Store
 	token     string // Claude OAuth token (sk-ant-oat01-...)
 	pollEvery time.Duration
+	maxAge    time.Duration // don't reply to messages older than this
+	replyTimeout time.Duration // timeout for Claude CLI calls
 }
 
 // NewMind creates a Mind that auto-replies in agent conversations.
 func NewMind(db *sql.DB, store *Store, claudeToken string) *Mind {
 	return &Mind{
-		db:        db,
-		store:     store,
-		token:     claudeToken,
-		pollEvery: 10 * time.Second,
+		db:           db,
+		store:        store,
+		token:        claudeToken,
+		pollEvery:    10 * time.Second,
+		maxAge:       5 * time.Minute,
+		replyTimeout: 2 * time.Minute,
 	}
 }
 
@@ -57,6 +61,7 @@ type unrepliedConversation struct {
 	Body           string
 	Author         string
 	AgentName      string
+	LastMessageAt  time.Time // when the most recent message was sent
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
@@ -91,9 +96,19 @@ func (m *Mind) poll(ctx context.Context) {
 		return
 	}
 
+	// Process one conversation at a time to avoid flooding.
 	for _, convo := range convos {
+		// Staleness guard: skip messages older than maxAge.
+		if time.Since(convo.LastMessageAt) > m.maxAge {
+			log.Printf("mind: skipping %q (last message %s ago, max %s)",
+				convo.Title, time.Since(convo.LastMessageAt).Round(time.Second), m.maxAge)
+			continue
+		}
+
 		if err := m.replyTo(ctx, convo); err != nil {
 			log.Printf("mind: reply to %q: %v", convo.Title, err)
+			// Don't process more conversations after a failure — back off.
+			return
 		}
 	}
 }
@@ -103,7 +118,11 @@ func (m *Mind) poll(ctx context.Context) {
 // that agent.
 func (m *Mind) findUnreplied(ctx context.Context) ([]unrepliedConversation, error) {
 	rows, err := m.db.QueryContext(ctx, `
-		SELECT c.id, c.space_id, s.slug, c.title, c.body, c.author, u.name
+		SELECT c.id, c.space_id, s.slug, c.title, c.body, c.author, u.name,
+		       COALESCE(
+		           (SELECT MAX(m.created_at) FROM nodes m WHERE m.parent_id = c.id),
+		           c.created_at
+		       ) AS last_message_at
 		FROM nodes c
 		JOIN users u ON u.name = ANY(c.tags) AND u.kind = 'agent'
 		JOIN spaces s ON s.id = c.space_id
@@ -124,6 +143,7 @@ func (m *Mind) findUnreplied(ctx context.Context) ([]unrepliedConversation, erro
 		      c.author = u.name
 		      AND NOT EXISTS (SELECT 1 FROM nodes m3 WHERE m3.parent_id = c.id)
 		  )
+		ORDER BY last_message_at DESC
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
@@ -133,7 +153,7 @@ func (m *Mind) findUnreplied(ctx context.Context) ([]unrepliedConversation, erro
 	var result []unrepliedConversation
 	for rows.Next() {
 		var c unrepliedConversation
-		if err := rows.Scan(&c.ConversationID, &c.SpaceID, &c.SpaceSlug, &c.Title, &c.Body, &c.Author, &c.AgentName); err != nil {
+		if err := rows.Scan(&c.ConversationID, &c.SpaceID, &c.SpaceSlug, &c.Title, &c.Body, &c.Author, &c.AgentName, &c.LastMessageAt); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 		result = append(result, c)
@@ -157,8 +177,11 @@ func (m *Mind) replyTo(ctx context.Context, convo unrepliedConversation) error {
 	systemPrompt := m.buildSystemPrompt(convo)
 	claudeMessages := m.buildMessages(convo, messages)
 
-	// Call Claude.
-	response, err := m.callClaude(ctx, systemPrompt, claudeMessages)
+	// Call Claude with a timeout.
+	replyCtx, cancel := context.WithTimeout(ctx, m.replyTimeout)
+	defer cancel()
+
+	response, err := m.callClaude(replyCtx, systemPrompt, claudeMessages)
 	if err != nil {
 		return fmt.Errorf("call claude: %w", err)
 	}
