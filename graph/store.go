@@ -381,6 +381,21 @@ func (s *Store) DeleteSpace(ctx context.Context, id string) error {
 	return nil
 }
 
+// GetSpaceByID returns a space by its ID.
+func (s *Store) GetSpaceByID(ctx context.Context, id string) (*Space, error) {
+	var sp Space
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, slug, name, description, owner_id, kind, visibility, created_at FROM spaces WHERE id = $1`, id,
+	).Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.Visibility, &sp.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get space: %w", err)
+	}
+	return &sp, nil
+}
+
 // GetSpaceBySlug returns a space by its slug.
 func (s *Store) GetSpaceBySlug(ctx context.Context, slug string) (*Space, error) {
 	var sp Space
@@ -863,6 +878,51 @@ func (s *Store) ListNodeOps(ctx context.Context, nodeID string) ([]Op, error) {
 // ────────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────────
+
+// ListAvailableTasks returns open, unassigned tasks from public spaces.
+// This is the marketplace: work that's available for anyone to claim.
+func (s *Store) ListAvailableTasks(ctx context.Context, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT n.id, n.space_id, COALESCE(n.parent_id, ''), n.kind, n.title, n.body,
+		       n.state, n.priority, n.assignee, n.author, n.author_id, n.author_kind,
+		       n.tags, n.due_date, n.created_at, n.updated_at, 0, 0, 0
+		FROM nodes n
+		JOIN spaces s ON s.id = n.space_id AND s.visibility = 'public'
+		WHERE n.kind = 'task' AND n.state = 'open' AND n.assignee = ''
+		  AND n.parent_id IS NULL
+		ORDER BY n.priority = 'urgent' DESC, n.priority = 'high' DESC, n.created_at DESC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tasks []Node
+	for rows.Next() {
+		var n Node
+		var parentID sql.NullString
+		var dueDate sql.NullTime
+		if err := rows.Scan(
+			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
+			&n.State, &n.Priority, &n.Assignee, &n.Author, &n.AuthorID, &n.AuthorKind,
+			pq.Array(&n.Tags), &dueDate, &n.CreatedAt, &n.UpdatedAt,
+			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
+		); err != nil {
+			return nil, err
+		}
+		if parentID.Valid {
+			n.ParentID = parentID.String
+		}
+		if dueDate.Valid {
+			d := dueDate.Time
+			n.DueDate = &d
+		}
+		tasks = append(tasks, n)
+	}
+	return tasks, rows.Err()
+}
 
 // ────────────────────────────────────────────────────────────────────
 // Dependencies

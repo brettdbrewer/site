@@ -1,0 +1,72 @@
+package views
+
+import "fmt"
+
+// MarketTask is an available task for the marketplace.
+type MarketTask struct {
+	ID        string
+	SpaceSlug string
+	Title     string
+	Body      string
+	Priority  string
+	Author    string
+}
+
+templ MarketPage(tasks []MarketTask) {
+	@Layout("Market", "Available work on lovyou.ai — tasks you can claim and work on, or assign to an AI agent.") {
+		<div class="space-y-8">
+			<div class="reveal" style="--d:0">
+				<h1 class="text-3xl font-light text-warm">Market</h1>
+				<p class="text-warm-muted mt-2">
+					Open tasks across public spaces. Claim one yourself, or
+					<a href="/app" class="text-brand hover:underline">create your own</a>.
+				</p>
+			</div>
+			if len(tasks) == 0 {
+				<div class="text-center py-16 space-y-4">
+					<p class="text-warm-muted text-lg">No open tasks right now.</p>
+					<p class="text-warm-faint">Create a task on a public space and leave it unassigned to list it here.</p>
+				</div>
+			} else {
+				<div class="reveal-scroll space-y-3">
+					for _, t := range tasks {
+						@marketCard(t)
+					}
+				</div>
+			}
+		</div>
+	}
+}
+
+templ marketCard(t MarketTask) {
+	<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", t.SpaceSlug, t.ID)) }
+		class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+		<div class="flex items-start justify-between gap-4">
+			<div class="flex-1 min-w-0">
+				<h2 class="text-base font-medium text-warm">{ t.Title }</h2>
+				if t.Body != "" {
+					<p class="text-sm text-warm-muted mt-1 leading-relaxed line-clamp-2">{ t.Body }</p>
+				}
+				<div class="flex items-center gap-3 mt-2 text-xs text-warm-faint">
+					<span>by { t.Author }</span>
+				</div>
+			</div>
+			<span class={ "text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0", priorityClass(t.Priority) }>
+				{ t.Priority }
+			</span>
+		</div>
+	</a>
+}
+
+func priorityClass(p string) string {
+	switch p {
+	case "urgent":
+		return "bg-red-500/15 text-red-400"
+	case "high":
+		return "bg-orange-500/15 text-orange-400"
+	case "medium":
+		return "bg-yellow-500/15 text-yellow-400"
+	default:
+		return "bg-warm-faint/20 text-warm-muted"
+	}
+}

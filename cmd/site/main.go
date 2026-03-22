@@ -262,6 +262,31 @@ func main() {
 		views.DiscoverPage(ds).Render(r.Context(), w)
 	})
 
+	// Market — available tasks across public spaces.
+	mux.HandleFunc("GET /market", func(w http.ResponseWriter, r *http.Request) {
+		if graphStore == nil {
+			views.MarketPage(nil).Render(r.Context(), w)
+			return
+		}
+		nodes, err := graphStore.ListAvailableTasks(r.Context(), 50)
+		if err != nil {
+			log.Printf("market: %v", err)
+		}
+		// Resolve space slugs for links.
+		var tasks []views.MarketTask
+		for _, n := range nodes {
+			slug := ""
+			if sp, _ := graphStore.GetSpaceByID(r.Context(), n.SpaceID); sp != nil {
+				slug = sp.Slug
+			}
+			tasks = append(tasks, views.MarketTask{
+				ID: n.ID, SpaceSlug: slug, Title: n.Title,
+				Body: n.Body, Priority: n.Priority, Author: n.Author,
+			})
+		}
+		views.MarketPage(tasks).Render(r.Context(), w)
+	})
+
 	// Health check for Fly.io.
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
