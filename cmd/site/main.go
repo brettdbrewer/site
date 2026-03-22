@@ -139,7 +139,7 @@ func main() {
 		}
 
 		// Auth middleware: Google OAuth if configured, otherwise anonymous passthrough.
-		var wrap func(http.HandlerFunc) http.Handler
+		var readWrap, writeWrap func(http.HandlerFunc) http.Handler
 		clientID := os.Getenv("GOOGLE_CLIENT_ID")
 		clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 
@@ -155,10 +155,11 @@ func main() {
 				log.Fatalf("auth: %v", err)
 			}
 			authService.Register(mux)
-			wrap = authService.RequireAuth
+			writeWrap = authService.RequireAuth
+			readWrap = authService.OptionalAuth
 			log.Println("auth enabled (Google OAuth)")
 		} else {
-			wrap = func(next http.HandlerFunc) http.Handler {
+			anonWrap := func(next http.HandlerFunc) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					ctx := auth.ContextWithUser(r.Context(), &auth.User{
 						ID: "anonymous", Name: "Anonymous", Email: "anon@lovyou.ai",
@@ -166,6 +167,8 @@ func main() {
 					next.ServeHTTP(w, r.WithContext(ctx))
 				})
 			}
+			readWrap = anonWrap
+			writeWrap = anonWrap
 			log.Println("auth disabled (no GOOGLE_CLIENT_ID) — anonymous mode")
 		}
 
@@ -173,7 +176,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("graph store: %v", err)
 		}
-		graphHandlers := graph.NewHandlers(graphStore, wrap)
+		graphHandlers := graph.NewHandlers(graphStore, readWrap, writeWrap)
 		graphHandlers.Register(mux)
 		log.Println("app enabled (DATABASE_URL set)")
 

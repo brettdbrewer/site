@@ -112,6 +112,25 @@ func (a *Auth) RequireAuth(next http.HandlerFunc) http.Handler {
 	})
 }
 
+// OptionalAuth tries to load a user from the session cookie but does not
+// redirect if no session exists. The request proceeds with or without a user.
+func (a *Auth) OptionalAuth(next http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("session")
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		user, err := a.userBySession(r.Context(), cookie.Value)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ctx := ContextWithUser(r.Context(), user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Handlers
 // ────────────────────────────────────────────────────────────────────

@@ -19,42 +19,48 @@ type ViewUser struct {
 
 // Handlers serves the unified product HTTP endpoints.
 type Handlers struct {
-	store *Store
-	wrap  func(http.HandlerFunc) http.Handler
+	store     *Store
+	readWrap  func(http.HandlerFunc) http.Handler // optional auth (reads)
+	writeWrap func(http.HandlerFunc) http.Handler // required auth (writes)
 }
 
 // NewHandlers creates handlers with auth middleware.
-func NewHandlers(store *Store, wrap func(http.HandlerFunc) http.Handler) *Handlers {
-	if wrap == nil {
-		wrap = func(hf http.HandlerFunc) http.Handler { return hf }
+// readWrap allows anonymous access (for public spaces), writeWrap requires auth.
+func NewHandlers(store *Store, readWrap, writeWrap func(http.HandlerFunc) http.Handler) *Handlers {
+	noop := func(hf http.HandlerFunc) http.Handler { return hf }
+	if readWrap == nil {
+		readWrap = noop
 	}
-	return &Handlers{store: store, wrap: wrap}
+	if writeWrap == nil {
+		writeWrap = noop
+	}
+	return &Handlers{store: store, readWrap: readWrap, writeWrap: writeWrap}
 }
 
 // Register adds all /app routes to the mux.
 func (h *Handlers) Register(mux *http.ServeMux) {
-	// Space management.
-	mux.Handle("GET /app", h.wrap(h.handleSpaceIndex))
-	mux.Handle("POST /app/new", h.wrap(h.handleCreateSpace))
+	// Space management (requires auth).
+	mux.Handle("GET /app", h.writeWrap(h.handleSpaceIndex))
+	mux.Handle("POST /app/new", h.writeWrap(h.handleCreateSpace))
 
-	// Space lenses.
-	mux.Handle("GET /app/{slug}", h.wrap(h.handleSpaceDefault))
-	mux.Handle("GET /app/{slug}/board", h.wrap(h.handleBoard))
-	mux.Handle("GET /app/{slug}/feed", h.wrap(h.handleFeed))
-	mux.Handle("GET /app/{slug}/threads", h.wrap(h.handleThreads))
-	mux.Handle("GET /app/{slug}/people", h.wrap(h.handlePeople))
-	mux.Handle("GET /app/{slug}/activity", h.wrap(h.handleActivity))
+	// Space lenses (optional auth — public spaces readable by anyone).
+	mux.Handle("GET /app/{slug}", h.readWrap(h.handleSpaceDefault))
+	mux.Handle("GET /app/{slug}/board", h.readWrap(h.handleBoard))
+	mux.Handle("GET /app/{slug}/feed", h.readWrap(h.handleFeed))
+	mux.Handle("GET /app/{slug}/threads", h.readWrap(h.handleThreads))
+	mux.Handle("GET /app/{slug}/people", h.readWrap(h.handlePeople))
+	mux.Handle("GET /app/{slug}/activity", h.readWrap(h.handleActivity))
 
-	// Node detail.
-	mux.Handle("GET /app/{slug}/node/{id}", h.wrap(h.handleNodeDetail))
+	// Node detail (optional auth — public spaces readable by anyone).
+	mux.Handle("GET /app/{slug}/node/{id}", h.readWrap(h.handleNodeDetail))
 
-	// Grammar operations.
-	mux.Handle("POST /app/{slug}/op", h.wrap(h.handleOp))
+	// Grammar operations (requires auth).
+	mux.Handle("POST /app/{slug}/op", h.writeWrap(h.handleOp))
 
-	// Node mutations.
-	mux.Handle("POST /app/{slug}/node/{id}/state", h.wrap(h.handleNodeState))
-	mux.Handle("POST /app/{slug}/node/{id}/update", h.wrap(h.handleNodeUpdate))
-	mux.Handle("DELETE /app/{slug}/node/{id}", h.wrap(h.handleNodeDelete))
+	// Node mutations (requires auth).
+	mux.Handle("POST /app/{slug}/node/{id}/state", h.writeWrap(h.handleNodeState))
+	mux.Handle("POST /app/{slug}/node/{id}/update", h.writeWrap(h.handleNodeUpdate))
+	mux.Handle("DELETE /app/{slug}/node/{id}", h.writeWrap(h.handleNodeDelete))
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -85,6 +91,7 @@ func (h *Handlers) userName(r *http.Request) string {
 	return u.Name
 }
 
+// spaceFromRequest returns a space only if the current user owns it (for writes).
 func (h *Handlers) spaceFromRequest(r *http.Request) (*Space, error) {
 	slug := r.PathValue("slug")
 	space, err := h.store.GetSpaceBySlug(r.Context(), slug)
@@ -95,6 +102,20 @@ func (h *Handlers) spaceFromRequest(r *http.Request) (*Space, error) {
 		return nil, ErrNotFound
 	}
 	return space, nil
+}
+
+// spaceForRead returns a space if the user owns it OR it's public (for reads).
+func (h *Handlers) spaceForRead(r *http.Request) (*Space, bool, error) {
+	slug := r.PathValue("slug")
+	space, err := h.store.GetSpaceBySlug(r.Context(), slug)
+	if err != nil {
+		return nil, false, err
+	}
+	isOwner := space.OwnerID == h.userID(r)
+	if !isOwner && space.Visibility != VisibilityPublic {
+		return nil, false, ErrNotFound
+	}
+	return space, isOwner, nil
 }
 
 func isHTMX(r *http.Request) bool {
@@ -144,14 +165,18 @@ func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	if kind == "" {
 		kind = SpaceProject
 	}
+	visibility := r.FormValue("visibility")
+	if visibility != VisibilityPublic {
+		visibility = VisibilityPrivate
+	}
 
 	slug := slugify(name)
 	// Ensure unique slug by appending random suffix on conflict.
-	space, err := h.store.CreateSpace(r.Context(), slug, name, description, h.userID(r), kind)
+	space, err := h.store.CreateSpace(r.Context(), slug, name, description, h.userID(r), kind, visibility)
 	if err != nil {
 		// Try with random suffix.
 		slug = slug + "-" + newID()[:6]
-		space, err = h.store.CreateSpace(r.Context(), slug, name, description, h.userID(r), kind)
+		space, err = h.store.CreateSpace(r.Context(), slug, name, description, h.userID(r), kind, visibility)
 		if err != nil {
 			log.Printf("graph: create space: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -163,7 +188,7 @@ func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, _, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -186,7 +211,7 @@ func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
 // ────────────────────────────────────────────────────────────────────
 
 func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -196,11 +221,7 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.store.ListSpaces(r.Context(), h.userID(r))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	tasks, err := h.store.ListNodes(r.Context(), ListNodesParams{
 		SpaceID:  space.ID,
@@ -213,11 +234,11 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	columns := groupByState(tasks)
-	BoardView(*space, spaces, columns, h.viewUser(r)).Render(r.Context(), w)
+	BoardView(*space, spaces, columns, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -227,11 +248,7 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.store.ListSpaces(r.Context(), h.userID(r))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	posts, err := h.store.ListNodes(r.Context(), ListNodesParams{
 		SpaceID:  space.ID,
@@ -243,11 +260,11 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	FeedView(*space, spaces, posts, h.viewUser(r)).Render(r.Context(), w)
+	FeedView(*space, spaces, posts, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -257,11 +274,7 @@ func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.store.ListSpaces(r.Context(), h.userID(r))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	threads, err := h.store.ListNodes(r.Context(), ListNodesParams{
 		SpaceID:  space.ID,
@@ -273,11 +286,11 @@ func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ThreadsView(*space, spaces, threads, h.viewUser(r)).Render(r.Context(), w)
+	ThreadsView(*space, spaces, threads, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
 func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, _, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -287,11 +300,7 @@ func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.store.ListSpaces(r.Context(), h.userID(r))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	ops, err := h.store.ListOps(r.Context(), space.ID, 1000)
 	if err != nil {
@@ -319,7 +328,7 @@ func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, _, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -329,11 +338,7 @@ func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.store.ListSpaces(r.Context(), h.userID(r))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	ops, err := h.store.ListOps(r.Context(), space.ID, 50)
 	if err != nil {
@@ -349,7 +354,7 @@ func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
 // ────────────────────────────────────────────────────────────────────
 
 func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceFromRequest(r)
+	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -385,7 +390,7 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	NodeDetailView(*space, *node, children, ops, h.viewUser(r)).Render(r.Context(), w)
+	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
 // ────────────────────────────────────────────────────────────────────

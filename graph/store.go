@@ -52,6 +52,12 @@ const (
 	SpaceTeam      = "team"
 )
 
+// Space visibility.
+const (
+	VisibilityPrivate = "private"
+	VisibilityPublic  = "public"
+)
+
 // Space is a container — project, community, or team.
 type Space struct {
 	ID          string
@@ -60,6 +66,7 @@ type Space struct {
 	Description string
 	OwnerID     string
 	Kind        string
+	Visibility  string
 	CreatedAt   time.Time
 }
 
@@ -194,6 +201,8 @@ CREATE INDEX IF NOT EXISTS idx_nodes_state ON nodes(space_id, state);
 CREATE INDEX IF NOT EXISTS idx_ops_space ON ops(space_id);
 CREATE INDEX IF NOT EXISTS idx_ops_node ON ops(node_id);
 CREATE INDEX IF NOT EXISTS idx_ops_op ON ops(space_id, op);
+
+ALTER TABLE spaces ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'private';
 `)
 	return err
 }
@@ -203,9 +212,12 @@ CREATE INDEX IF NOT EXISTS idx_ops_op ON ops(space_id, op);
 // ────────────────────────────────────────────────────────────────────
 
 // CreateSpace creates a new space.
-func (s *Store) CreateSpace(ctx context.Context, slug, name, description, ownerID, kind string) (*Space, error) {
+func (s *Store) CreateSpace(ctx context.Context, slug, name, description, ownerID, kind, visibility string) (*Space, error) {
 	if kind == "" {
 		kind = SpaceProject
+	}
+	if visibility == "" {
+		visibility = VisibilityPrivate
 	}
 	sp := &Space{
 		ID:          newID(),
@@ -214,10 +226,11 @@ func (s *Store) CreateSpace(ctx context.Context, slug, name, description, ownerI
 		Description: description,
 		OwnerID:     ownerID,
 		Kind:        kind,
+		Visibility:  visibility,
 	}
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO spaces (id, slug, name, description, owner_id, kind) VALUES ($1, $2, $3, $4, $5, $6) RETURNING created_at`,
-		sp.ID, sp.Slug, sp.Name, sp.Description, sp.OwnerID, sp.Kind,
+		`INSERT INTO spaces (id, slug, name, description, owner_id, kind, visibility) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
+		sp.ID, sp.Slug, sp.Name, sp.Description, sp.OwnerID, sp.Kind, sp.Visibility,
 	).Scan(&sp.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create space: %w", err)
@@ -228,7 +241,7 @@ func (s *Store) CreateSpace(ctx context.Context, slug, name, description, ownerI
 // ListSpaces returns spaces owned by the given user.
 func (s *Store) ListSpaces(ctx context.Context, ownerID string) ([]Space, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, slug, name, description, owner_id, kind, created_at
+		`SELECT id, slug, name, description, owner_id, kind, visibility, created_at
 		 FROM spaces WHERE owner_id = $1 ORDER BY created_at`, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list spaces: %w", err)
@@ -238,7 +251,28 @@ func (s *Store) ListSpaces(ctx context.Context, ownerID string) ([]Space, error)
 	var spaces []Space
 	for rows.Next() {
 		var sp Space
-		if err := rows.Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.CreatedAt); err != nil {
+		if err := rows.Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.Visibility, &sp.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan space: %w", err)
+		}
+		spaces = append(spaces, sp)
+	}
+	return spaces, rows.Err()
+}
+
+// ListPublicSpaces returns all public spaces.
+func (s *Store) ListPublicSpaces(ctx context.Context) ([]Space, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, slug, name, description, owner_id, kind, visibility, created_at
+		 FROM spaces WHERE visibility = 'public' ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list public spaces: %w", err)
+	}
+	defer rows.Close()
+
+	var spaces []Space
+	for rows.Next() {
+		var sp Space
+		if err := rows.Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.Visibility, &sp.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan space: %w", err)
 		}
 		spaces = append(spaces, sp)
@@ -250,8 +284,8 @@ func (s *Store) ListSpaces(ctx context.Context, ownerID string) ([]Space, error)
 func (s *Store) GetSpaceBySlug(ctx context.Context, slug string) (*Space, error) {
 	var sp Space
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, slug, name, description, owner_id, kind, created_at FROM spaces WHERE slug = $1`, slug,
-	).Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.CreatedAt)
+		`SELECT id, slug, name, description, owner_id, kind, visibility, created_at FROM spaces WHERE slug = $1`, slug,
+	).Scan(&sp.ID, &sp.Slug, &sp.Name, &sp.Description, &sp.OwnerID, &sp.Kind, &sp.Visibility, &sp.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
