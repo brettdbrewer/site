@@ -1,8 +1,11 @@
 package graph
 
 import (
+	"bytes"
 	"fmt"
 	"time"
+
+	"github.com/yuin/goldmark"
 )
 
 // ── Theme block (shared across app layouts) ─────────────────────
@@ -535,7 +538,9 @@ templ FeedCard(node Node, spaceSlug string) {
 		if node.Title != "" {
 			<h3 class="font-medium text-warm mb-1">{ node.Title }</h3>
 		}
-		<p class="text-sm text-warm-secondary whitespace-pre-wrap">{ node.Body }</p>
+		<div class="text-sm text-warm-secondary prose prose-invert prose-sm max-w-none">
+			@renderMarkdown(node.Body)
+		</div>
 		<div class="mt-3 flex items-center gap-4 text-xs text-warm-faint">
 			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) } class="hover:text-brand transition-colors">
 				{ fmt.Sprintf("%d replies", node.ChildCount) }
@@ -1088,7 +1093,9 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 			<!-- Body -->
 			if node.Body != "" {
 				<div class="bg-surface rounded-lg border border-edge p-4">
-					<p class="text-sm text-warm-secondary whitespace-pre-wrap">{ node.Body }</p>
+					<div class="text-sm text-warm-secondary prose prose-invert prose-sm max-w-none">
+			@renderMarkdown(node.Body)
+		</div>
 				</div>
 			}
 
@@ -1273,7 +1280,9 @@ templ CommentItem(node Node) {
 			}
 			<span class="text-xs text-warm-faint">{ node.CreatedAt.Format("Jan 2, 3:04 PM") }</span>
 		</div>
-		<p class="text-sm text-warm-secondary whitespace-pre-wrap">{ node.Body }</p>
+		<div class="text-sm text-warm-secondary prose prose-invert prose-sm max-w-none">
+			@renderMarkdown(node.Body)
+		</div>
 	</div>
 }
 
@@ -1513,6 +1522,15 @@ func opBadgeClass(op string) string {
 	default:
 		return "bg-warm-faint/20 text-warm-muted"
 	}
+}
+
+func renderMarkdown(src string) templ.Component {
+	var buf bytes.Buffer
+	md := goldmark.New()
+	if err := md.Convert([]byte(src), &buf); err != nil {
+		return templ.Raw("<p>" + src + "</p>")
+	}
+	return templ.Raw(buf.String())
 }
 
 func resolveName(id string, nameMap map[string]string) string {
