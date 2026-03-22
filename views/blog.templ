@@ -57,7 +57,7 @@ type Primitive struct {
 }
 
 templ BlogIndex(posts []Post) {
-	@Layout("Blog") {
+	@Layout("Blog", "A series on EventGraph, AI consciousness, and the architecture of accountable systems.") {
 		<div class="space-y-8">
 			<h1 class="text-3xl font-bold">Blog</h1>
 			<p class="text-gray-600">A series on EventGraph, AI consciousness, and the architecture of accountable systems. Best read in order.</p>
@@ -80,7 +80,7 @@ templ blogCard(post Post) {
 }
 
 templ BlogPost(post Post, nav PostNav) {
-	@Layout(post.Title) {
+	@Layout(post.Title, post.Summary) {
 		<article class="space-y-6">
 			<div>
 				<a href="/blog" class="text-sm text-brand hover:underline">&larr; All posts</a>

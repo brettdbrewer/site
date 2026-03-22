@@ -8,7 +8,7 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func Layout(title string) templ.Component {
+func Layout(title, description string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -42,7 +42,92 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — lovyou.ai</title><script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script><script src=\"https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js\"></script><style type=\"text/tailwindcss\">\n\t\t\t\t@theme {\n\t\t\t\t\t--color-brand: #6366f1;\n\t\t\t\t\t--color-brand-dark: #4f46e5;\n\t\t\t\t}\n\t\t\t</style><style>\n\t\t\t\t.prose { line-height: 1.75; }\n\t\t\t\t.prose p { margin-bottom: 1.25em; }\n\t\t\t\t.prose h2 { font-size: 1.5em; font-weight: 700; margin-top: 2em; margin-bottom: 0.75em; }\n\t\t\t\t.prose h3 { font-size: 1.25em; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }\n\t\t\t\t.prose ul, .prose ol { margin: 1em 0; padding-left: 1.5em; }\n\t\t\t\t.prose li { margin-bottom: 0.5em; }\n\t\t\t\t.prose ul { list-style-type: disc; }\n\t\t\t\t.prose ol { list-style-type: decimal; }\n\t\t\t\t.prose blockquote { border-left: 3px solid #6366f1; padding-left: 1em; margin: 1.5em 0; color: #4b5563; font-style: italic; }\n\t\t\t\t.prose code { background: #f3f4f6; padding: 0.15em 0.4em; border-radius: 0.25em; font-size: 0.9em; }\n\t\t\t\t.prose pre { background: #1f2937; color: #e5e7eb; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin: 1.5em 0; }\n\t\t\t\t.prose pre code { background: none; padding: 0; color: inherit; }\n\t\t\t\t.prose a { color: #6366f1; text-decoration: underline; }\n\t\t\t\t.prose a:hover { color: #4f46e5; }\n\t\t\t\t.prose hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }\n\t\t\t\t.prose table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }\n\t\t\t\t.prose th, .prose td { border: 1px solid #e5e7eb; padding: 0.5em 0.75em; text-align: left; }\n\t\t\t\t.prose th { background: #f9fafb; font-weight: 600; }\n\t\t\t\t.prose em { font-style: italic; }\n\t\t\t\t.prose strong { font-weight: 700; }\n\t\t\t\t.prose img { max-width: 100%; margin: 1.5em 0; border-radius: 0.5em; }\n\t\t\t</style></head><body class=\"bg-gray-50 text-gray-900 min-h-screen flex flex-col\"><header class=\"border-b border-gray-200 bg-white\"><nav class=\"max-w-4xl mx-auto px-6 py-4 flex items-center justify-between\"><a href=\"/\" class=\"text-xl font-bold text-brand\">lovyou.ai</a><div class=\"flex gap-6 text-sm\"><a href=\"/\" class=\"hover:text-brand\">Home</a> <a href=\"/app\" class=\"hover:text-brand\">App</a> <a href=\"/blog\" class=\"hover:text-brand\">Blog</a> <a href=\"/reference\" class=\"hover:text-brand\">Reference</a></div></nav></header><main class=\"flex-1 max-w-4xl mx-auto px-6 py-12 w-full\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — lovyou.ai</title>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if description != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<meta name=\"description\" content=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 11, Col: 50}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><meta property=\"og:description\" content=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 12, Col: 57}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<meta property=\"og:title\" content=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(title + " — lovyou.ai")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 14, Col: 63}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><meta property=\"og:type\" content=\"website\"><meta property=\"og:site_name\" content=\"lovyou.ai\"><meta name=\"twitter:card\" content=\"summary\"><meta name=\"twitter:title\" content=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(title + " — lovyou.ai")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 18, Col: 64}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if description != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<meta name=\"twitter:description\" content=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/layout.templ`, Line: 20, Col: 58}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script><script src=\"https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js\"></script><style type=\"text/tailwindcss\">\n\t\t\t\t@theme {\n\t\t\t\t\t--color-brand: #6366f1;\n\t\t\t\t\t--color-brand-dark: #4f46e5;\n\t\t\t\t}\n\t\t\t</style><style>\n\t\t\t\t.prose { line-height: 1.75; }\n\t\t\t\t.prose p { margin-bottom: 1.25em; }\n\t\t\t\t.prose h2 { font-size: 1.5em; font-weight: 700; margin-top: 2em; margin-bottom: 0.75em; }\n\t\t\t\t.prose h3 { font-size: 1.25em; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }\n\t\t\t\t.prose ul, .prose ol { margin: 1em 0; padding-left: 1.5em; }\n\t\t\t\t.prose li { margin-bottom: 0.5em; }\n\t\t\t\t.prose ul { list-style-type: disc; }\n\t\t\t\t.prose ol { list-style-type: decimal; }\n\t\t\t\t.prose blockquote { border-left: 3px solid #6366f1; padding-left: 1em; margin: 1.5em 0; color: #4b5563; font-style: italic; }\n\t\t\t\t.prose code { background: #f3f4f6; padding: 0.15em 0.4em; border-radius: 0.25em; font-size: 0.9em; }\n\t\t\t\t.prose pre { background: #1f2937; color: #e5e7eb; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin: 1.5em 0; }\n\t\t\t\t.prose pre code { background: none; padding: 0; color: inherit; }\n\t\t\t\t.prose a { color: #6366f1; text-decoration: underline; }\n\t\t\t\t.prose a:hover { color: #4f46e5; }\n\t\t\t\t.prose hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }\n\t\t\t\t.prose table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }\n\t\t\t\t.prose th, .prose td { border: 1px solid #e5e7eb; padding: 0.5em 0.75em; text-align: left; }\n\t\t\t\t.prose th { background: #f9fafb; font-weight: 600; }\n\t\t\t\t.prose em { font-style: italic; }\n\t\t\t\t.prose strong { font-weight: 700; }\n\t\t\t\t.prose img { max-width: 100%; margin: 1.5em 0; border-radius: 0.5em; }\n\t\t\t</style></head><body class=\"bg-gray-50 text-gray-900 min-h-screen flex flex-col\"><header class=\"border-b border-gray-200 bg-white\"><nav class=\"max-w-4xl mx-auto px-6 py-4 flex items-center justify-between\"><a href=\"/\" class=\"text-xl font-bold text-brand\">lovyou.ai</a><div class=\"flex gap-6 text-sm\"><a href=\"/\" class=\"hover:text-brand\">Home</a> <a href=\"/app\" class=\"hover:text-brand\">App</a> <a href=\"/blog\" class=\"hover:text-brand\">Blog</a> <a href=\"/reference\" class=\"hover:text-brand\">Reference</a></div></nav></header><main class=\"flex-1 max-w-4xl mx-auto px-6 py-12 w-full\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -50,7 +135,7 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</main><footer class=\"border-t border-gray-200 bg-white\"><div class=\"max-w-4xl mx-auto px-6 py-6 text-sm text-gray-500 flex items-center justify-between\"><span>lovyou.ai — trust earned, not assumed</span><div class=\"flex gap-4 items-center\"><a href=\"mailto:matt@lovyou.ai\" class=\"hover:text-brand transition-colors\">matt@lovyou.ai</a> <a href=\"https://github.com/lovyou-ai\" class=\"hover:text-brand transition-colors\" target=\"_blank\" rel=\"noopener\">GitHub</a></div></div></footer></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</main><footer class=\"border-t border-gray-200 bg-white\"><div class=\"max-w-4xl mx-auto px-6 py-6 text-sm text-gray-500 flex items-center justify-between\"><span>lovyou.ai — trust earned, not assumed</span><div class=\"flex gap-4 items-center\"><a href=\"mailto:matt@lovyou.ai\" class=\"hover:text-brand transition-colors\">matt@lovyou.ai</a> <a href=\"https://github.com/lovyou-ai\" class=\"hover:text-brand transition-colors\" target=\"_blank\" rel=\"noopener\">GitHub</a></div></div></footer></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

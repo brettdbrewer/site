@@ -1,12 +1,24 @@
 package views
 
-templ Layout(title string) {
+templ Layout(title, description string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } — lovyou.ai</title>
+			if description != "" {
+				<meta name="description" content={ description }/>
+				<meta property="og:description" content={ description }/>
+			}
+			<meta property="og:title" content={ title + " — lovyou.ai" }/>
+			<meta property="og:type" content="website"/>
+			<meta property="og:site_name" content="lovyou.ai"/>
+			<meta name="twitter:card" content="summary"/>
+			<meta name="twitter:title" content={ title + " — lovyou.ai" }/>
+			if description != "" {
+				<meta name="twitter:description" content={ description }/>
+			}
 			<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 			<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
 			<style type="text/tailwindcss">

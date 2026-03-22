@@ -5,7 +5,7 @@ import "fmt"
 // ── Reference Index ─────────────────────────────────────────────
 
 templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage) {
-	@Layout("Reference") {
+	@Layout("Reference", "201 primitives across 14 layers, 15 graph operations, 13 domain grammars, and 28 agent primitives. The complete EventGraph ontology.") {
 		<div class="space-y-12">
 			<div>
 				<h1 class="text-3xl font-bold">Reference</h1>
@@ -138,7 +138,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 // ── Base Grammar Page ───────────────────────────────────────────
 
 templ BaseGrammarPage(body string) {
-	@Layout("Graph Grammar") {
+	@Layout("Graph Grammar", "The universal vocabulary — 15 operations on the event graph. Every domain grammar is a composition of these base operations.") {
 		<article class="space-y-6">
 			<div>
 				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
@@ -172,7 +172,7 @@ templ BaseGrammarPage(body string) {
 // ── Cognitive Grammar Page ──────────────────────────────────────
 
 templ CognitiveGrammarPage(body string) {
-	@Layout("Cognitive Grammar") {
+	@Layout("Cognitive Grammar", "The grammar that produces grammars — 3 base operations (Derive, Traverse, Need), 9 compositions via self-application, fixed-point closure.") {
 		<article class="space-y-6">
 			<div>
 				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
@@ -200,7 +200,7 @@ templ CognitiveGrammarPage(body string) {
 // ── Layer Page ─────────────────────────────────────────────────
 
 templ LayerPage(layer Layer, layers []Layer) {
-	@Layout(fmt.Sprintf("Layer %d: %s", layer.Number, layer.Name)) {
+	@Layout(fmt.Sprintf("Layer %d: %s", layer.Number, layer.Name), layerDescription(layer.Number)) {
 		<article class="space-y-6">
 			<div>
 				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
@@ -280,7 +280,7 @@ templ LayerPage(layer Layer, layers []Layer) {
 // ── Agent Primitives Page ──────────────────────────────────────
 
 templ AgentPrimitivesPage(prims []Primitive) {
-	@Layout("Agent Primitives") {
+	@Layout("Agent Primitives", "28 primitives defining what an agent is and can do — structural, operational, relational, and modal dimensions.") {
 		<article class="space-y-6">
 			<div>
 				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
@@ -307,7 +307,7 @@ templ AgentPrimitivesPage(prims []Primitive) {
 // ── Primitive Page ──────────────────────────────────────────────
 
 templ PrimitivePage(prim Primitive) {
-	@Layout(prim.Name) {
+	@Layout(prim.Name, prim.Description) {
 		<article class="space-y-6">
 			<div>
 				if prim.Layer >= 0 {
@@ -449,7 +449,7 @@ func specLabel(p Primitive, field string) string {
 // ── Grammar Pages ───────────────────────────────────────────────
 
 templ GrammarIndex(grammars []RefPage) {
-	@Layout("Layer Grammars") {
+	@Layout("Layer Grammars", "13 domain-specific grammars — each layer's vocabulary composed from the 15 base graph operations.") {
 		<div class="space-y-8">
 			<div>
 				<a href="/reference" class="text-sm text-brand hover:underline">&larr; Reference</a>
@@ -478,7 +478,7 @@ templ GrammarIndex(grammars []RefPage) {
 }
 
 templ GrammarPage(page RefPage, grammars []RefPage) {
-	@Layout(page.Title) {
+	@Layout(page.Title, page.Summary) {
 		<article class="space-y-6">
 			<div>
 				<a href="/reference/grammars" class="text-sm text-brand hover:underline">&larr; All grammars</a>

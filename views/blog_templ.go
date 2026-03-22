@@ -119,7 +119,7 @@ func BlogIndex(posts []Post) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Blog").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Blog", "A series on EventGraph, AI consciousness, and the architecture of accountable systems.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -376,7 +376,7 @@ func BlogPost(post Post, nav PostNav) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout(post.Title).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(post.Title, post.Summary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

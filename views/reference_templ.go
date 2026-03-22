@@ -174,7 +174,7 @@ func ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage) 
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Reference").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Reference", "201 primitives across 14 layers, 15 graph operations, 13 domain grammars, and 28 agent primitives. The complete EventGraph ontology.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -230,7 +230,7 @@ func BaseGrammarPage(body string) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Graph Grammar").Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Graph Grammar", "The universal vocabulary — 15 operations on the event graph. Every domain grammar is a composition of these base operations.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -286,7 +286,7 @@ func CognitiveGrammarPage(body string) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Cognitive Grammar").Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Cognitive Grammar", "The grammar that produces grammars — 3 base operations (Derive, Traverse, Need), 9 compositions via self-application, fixed-point closure.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -654,7 +654,7 @@ func LayerPage(layer Layer, layers []Layer) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout(fmt.Sprintf("Layer %d: %s", layer.Number, layer.Name)).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(fmt.Sprintf("Layer %d: %s", layer.Number, layer.Name), layerDescription(layer.Number)).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -751,7 +751,7 @@ func AgentPrimitivesPage(prims []Primitive) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Agent Primitives").Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Agent Primitives", "28 primitives defining what an agent is and can do — structural, operational, relational, and modal dimensions.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1130,7 +1130,7 @@ func PrimitivePage(prim Primitive) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout(prim.Name).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(prim.Name, prim.Description).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1305,7 +1305,7 @@ func GrammarIndex(grammars []RefPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Layer Grammars").Render(templ.WithChildren(ctx, templ_7745c5c3_Var59), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Layer Grammars", "13 domain-specific grammars — each layer's vocabulary composed from the 15 base graph operations.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var59), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1462,7 +1462,7 @@ func GrammarPage(page RefPage, grammars []RefPage) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout(page.Title).Render(templ.WithChildren(ctx, templ_7745c5c3_Var65), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(page.Title, page.Summary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var65), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
