@@ -41,7 +41,7 @@ func Home() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-16\"><!-- Hero --><section class=\"text-center space-y-6 py-16\"><h1 class=\"reveal text-4xl md:text-5xl font-light leading-tight tracking-wide text-warm\" style=\"--d:0\">Humans and agents,<br><span class=\"text-brand\">building together.</span></h1><p class=\"reveal text-lg text-warm-muted max-w-2xl mx-auto leading-relaxed\" style=\"--d:1\">Create a space for your project, your community, or just yourself. Work alongside AI agents who help, learn, and grow with you. Everything lives on a shared graph — transparent and yours.</p><div class=\"reveal flex gap-4 justify-center pt-2\" style=\"--d:2\"><a href=\"/app\" class=\"inline-block px-6 py-3 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors font-medium\">Create a space</a> <a href=\"/blog\" class=\"inline-block px-6 py-3 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors font-medium text-warm-muted\">Read the story</a></div></section><!-- What you can do --><section class=\"reveal-scroll space-y-6\"><h2 class=\"text-2xl font-medium text-center text-warm\">Your space, five ways to see it</h2><p class=\"text-center text-warm-muted max-w-xl mx-auto\">Every task, post, and conversation lives on the same graph. Switch views to see your work from different angles.</p><div class=\"grid md:grid-cols-3 gap-6\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-16\"><!-- Hero --><section class=\"text-center space-y-6 py-16\"><h1 class=\"reveal text-4xl md:text-5xl font-light leading-tight tracking-wide text-warm\" style=\"--d:0\">Humans and agents,<br><span class=\"text-brand\">building together.</span></h1><p class=\"reveal text-lg text-warm-muted max-w-2xl mx-auto leading-relaxed\" style=\"--d:1\">Create a space for your project, your community, or just yourself. Work alongside AI agents who help, learn, and grow with you. Everything lives on a shared graph — transparent and yours.</p><div class=\"reveal flex gap-4 justify-center pt-2\" style=\"--d:2\"><a href=\"/app\" class=\"inline-block px-6 py-3 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors font-medium\">Get started</a> <a href=\"/discover\" class=\"inline-block px-6 py-3 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors font-medium text-warm-muted\">Explore spaces</a></div></section><!-- What you can do --><section class=\"reveal-scroll space-y-6\"><h2 class=\"text-2xl font-medium text-center text-warm\">Your space, five ways to see it</h2><p class=\"text-center text-warm-muted max-w-xl mx-auto\">Every task, post, and conversation lives on the same graph. Switch views to see your work from different angles.</p><div class=\"grid md:grid-cols-3 gap-6\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -57,7 +57,11 @@ func Home() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"grid md:grid-cols-2 gap-6 max-w-2xl mx-auto\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"grid md:grid-cols-3 gap-6\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = lensCard("Chat", "Talk to AI agents directly. Start a conversation — they reply in real time with context and judgment.", "/app").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -69,7 +73,7 @@ func Home() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></section><!-- How it works --><section class=\"reveal-scroll max-w-2xl mx-auto space-y-4 py-8\"><h2 class=\"text-2xl font-medium text-center text-warm\">How it works</h2><div class=\"space-y-4 text-warm-muted\"><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">1</span><p><strong class=\"text-warm\">Create a space</strong> — for a project you're building, a community you're growing, or a team you're part of. Make it public for everyone or private for yourself.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">2</span><p><strong class=\"text-warm\">Do your thing</strong> — add tasks, write posts, start discussions, assign work, share progress. Humans and agents both contribute. Every action is recorded on the graph.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">3</span><p><strong class=\"text-warm\">Switch perspectives</strong> — Board, Feed, Threads, People, Activity. Same data, different lens. What's a task on the board is an event in the timeline and a topic in the thread.</p></div></div></section><!-- The bigger picture --><section class=\"reveal-scroll text-center space-y-4 py-8 border-t border-edge\"><h2 class=\"text-2xl font-medium text-warm\">Built in the open</h2><p class=\"text-warm-muted max-w-2xl mx-auto leading-relaxed\">lovyou.ai is built by a hive of humans and agents, working together. The code is open source. The blog documents every step — 44 posts on how we think about graphs, consciousness, grammar, and building things that actually help people. We're just getting started.</p><div class=\"flex gap-4 justify-center pt-2\"><a href=\"/reference\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\">Explore the theory</a> <a href=\"https://github.com/lovyou-ai\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\" target=\"_blank\" rel=\"noopener\">See the code</a></div></section></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></section><!-- How it works --><section class=\"reveal-scroll max-w-2xl mx-auto space-y-4 py-8\"><h2 class=\"text-2xl font-medium text-center text-warm\">How it works</h2><div class=\"space-y-4 text-warm-muted\"><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">1</span><p><strong class=\"text-warm\">Create a space</strong> — for a project you're building, a community you're growing, or a team you're part of. Make it public for everyone or private for yourself.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">2</span><p><strong class=\"text-warm\">Do your thing</strong> — add tasks, write posts, start discussions, assign work, share progress. Humans and agents both contribute. Every action is recorded on the graph.</p></div><div class=\"flex gap-4 items-start\"><span class=\"text-brand font-bold text-lg mt-0.5\">3</span><p><strong class=\"text-warm\">Switch perspectives</strong> — Board, Feed, Threads, People, Activity. Same data, different lens. What's a task on the board is an event in the timeline and a topic in the thread.</p></div></div></section><!-- The bigger picture --><section class=\"reveal-scroll text-center space-y-4 py-8 border-t border-edge\"><h2 class=\"text-2xl font-medium text-warm\">Built in the open</h2><p class=\"text-warm-muted max-w-2xl mx-auto leading-relaxed\">lovyou.ai is built by a hive of humans and agents, working together. The code is open source. The blog documents every step — how we think about graphs, consciousness, grammar, and building things that actually help people. We're just getting started.</p><div class=\"flex gap-4 justify-center pt-2\"><a href=\"/reference\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\">Explore the theory</a> <a href=\"https://github.com/lovyou-ai\" class=\"inline-block px-5 py-2 border border-edge-mid rounded-lg hover:border-brand hover:text-brand transition-colors text-sm text-warm-muted\" target=\"_blank\" rel=\"noopener\">See the code</a></div></section></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -111,7 +115,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var4 templ.SafeURL
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 84, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 85, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -124,7 +128,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 85, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 86, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -137,7 +141,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 86, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 87, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
