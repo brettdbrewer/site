@@ -767,6 +767,14 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "intend", nil)
 
+		// Trigger Mind if task was created with an agent assignee.
+		if h.mind != nil && node.Assignee != "" {
+			assigneeID := h.store.ResolveUserID(ctx, node.Assignee)
+			if assigneeID != "" {
+				go h.mind.OnTaskAssigned(space.ID, space.Slug, node, assigneeID)
+			}
+		}
+
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "intend"})
 			return
