@@ -216,6 +216,12 @@ ALTER TABLE nodes ADD COLUMN IF NOT EXISTS author_kind TEXT NOT NULL DEFAULT 'hu
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS author_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE ops ADD COLUMN IF NOT EXISTS actor_id TEXT NOT NULL DEFAULT '';
 
+CREATE TABLE IF NOT EXISTS mind_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id         TEXT PRIMARY KEY,
     google_id  TEXT UNIQUE NOT NULL,
@@ -832,6 +838,30 @@ func (s *Store) ListNodeOps(ctx context.Context, nodeID string) ([]Op, error) {
 		ops = append(ops, o)
 	}
 	return ops, rows.Err()
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────
+
+// ────────────────────────────────────────────────────────────────────
+// Mind State
+// ────────────────────────────────────────────────────────────────────
+
+// SetMindState upserts a key-value pair for the Mind's context.
+func (s *Store) SetMindState(ctx context.Context, key, value string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO mind_state (key, value, updated_at) VALUES ($1, $2, NOW())
+		 ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+		key, value)
+	return err
+}
+
+// GetMindState returns the value for a mind state key, or empty string.
+func (s *Store) GetMindState(ctx context.Context, key string) string {
+	var value string
+	s.db.QueryRowContext(ctx, `SELECT value FROM mind_state WHERE key = $1`, key).Scan(&value)
+	return value
 }
 
 // ────────────────────────────────────────────────────────────────────

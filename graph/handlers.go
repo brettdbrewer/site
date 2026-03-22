@@ -82,6 +82,9 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	// Grammar operations (requires auth).
 	mux.Handle("POST /app/{slug}/op", h.writeWrap(h.handleOp))
 
+	// Mind state (requires auth — used by cmd/post to sync loop state).
+	mux.Handle("PUT /api/mind-state", h.writeWrap(h.handleSetMindState))
+
 	// Node mutations (requires auth).
 	mux.Handle("POST /app/{slug}/node/{id}/state", h.writeWrap(h.handleNodeState))
 	mux.Handle("POST /app/{slug}/node/{id}/update", h.writeWrap(h.handleNodeUpdate))
@@ -1223,4 +1226,21 @@ type Member struct {
 	Kind     string // "human" or "agent"
 	OpCount  int
 	LastSeen string
+}
+
+// handleSetMindState sets a key-value pair for the Mind's context.
+// PUT /api/mind-state with JSON body {"key": "...", "value": "..."}.
+func (h *Handlers) handleSetMindState(w http.ResponseWriter, r *http.Request) {
+	populateFormFromJSON(r)
+	key := strings.TrimSpace(r.FormValue("key"))
+	value := r.FormValue("value")
+	if key == "" {
+		http.Error(w, "key required", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.SetMindState(r.Context(), key, value); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"key": key, "status": "ok"})
 }

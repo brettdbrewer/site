@@ -132,6 +132,15 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 func (m *Mind) buildSystemPrompt(convo *Node) string {
 	var sys strings.Builder
 	sys.WriteString(mindSoul)
+
+	// Inject loop state if available.
+	ctx := context.Background()
+	if state := m.store.GetMindState(ctx, "loop_state"); state != "" {
+		sys.WriteString("\n== CURRENT STATE ==\n")
+		sys.WriteString(state)
+		sys.WriteString("\n")
+	}
+
 	sys.WriteString("\n== CONVERSATION ==\n")
 	sys.WriteString(fmt.Sprintf("Title: %s\n", convo.Title))
 	if convo.Body != "" {
