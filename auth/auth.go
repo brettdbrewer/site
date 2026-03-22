@@ -225,7 +225,7 @@ func (a *Auth) handleCallback(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	http.Redirect(w, r, "/work", http.StatusSeeOther)
+	http.Redirect(w, r, "/app", http.StatusSeeOther)
 }
 
 func (a *Auth) handleLogout(w http.ResponseWriter, r *http.Request) {

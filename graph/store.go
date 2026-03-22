@@ -280,6 +280,37 @@ func (s *Store) ListPublicSpaces(ctx context.Context) ([]Space, error) {
 	return spaces, rows.Err()
 }
 
+// UpdateSpace updates a space's mutable fields.
+func (s *Store) UpdateSpace(ctx context.Context, id, name, description, visibility string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE spaces SET name = $1, description = $2, visibility = $3 WHERE id = $4`,
+		name, description, visibility, id,
+	)
+	if err != nil {
+		return fmt.Errorf("update space: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteSpace removes a space and all its nodes and ops (via CASCADE).
+func (s *Store) DeleteSpace(ctx context.Context, id string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM spaces WHERE id = $1`, id,
+	)
+	if err != nil {
+		return fmt.Errorf("delete space: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // GetSpaceBySlug returns a space by its slug.
 func (s *Store) GetSpaceBySlug(ctx context.Context, slug string) (*Space, error) {
 	var sp Space

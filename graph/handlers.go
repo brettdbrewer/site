@@ -43,6 +43,11 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /app", h.writeWrap(h.handleSpaceIndex))
 	mux.Handle("POST /app/new", h.writeWrap(h.handleCreateSpace))
 
+	// Space settings (requires auth, owner only).
+	mux.Handle("GET /app/{slug}/settings", h.writeWrap(h.handleSpaceSettings))
+	mux.Handle("POST /app/{slug}/settings", h.writeWrap(h.handleUpdateSpace))
+	mux.Handle("POST /app/{slug}/delete", h.writeWrap(h.handleDeleteSpace))
+
 	// Space lenses (optional auth — public spaces readable by anyone).
 	mux.Handle("GET /app/{slug}", h.readWrap(h.handleSpaceDefault))
 	mux.Handle("GET /app/{slug}/board", h.readWrap(h.handleBoard))
@@ -185,6 +190,79 @@ func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/app/"+space.Slug, http.StatusSeeOther)
+}
+
+func (h *Handlers) handleSpaceSettings(w http.ResponseWriter, r *http.Request) {
+	space, err := h.spaceFromRequest(r)
+	if errors.Is(err, ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
+	SettingsView(*space, spaces, h.viewUser(r), "").Render(r.Context(), w)
+}
+
+func (h *Handlers) handleUpdateSpace(w http.ResponseWriter, r *http.Request) {
+	space, err := h.spaceFromRequest(r)
+	if errors.Is(err, ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
+		SettingsView(*space, spaces, h.viewUser(r), "Name cannot be empty.").Render(r.Context(), w)
+		return
+	}
+
+	description := strings.TrimSpace(r.FormValue("description"))
+	visibility := r.FormValue("visibility")
+	if visibility != VisibilityPublic {
+		visibility = VisibilityPrivate
+	}
+
+	if err := h.store.UpdateSpace(r.Context(), space.ID, name, description, visibility); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/app/"+space.Slug+"/settings", http.StatusSeeOther)
+}
+
+func (h *Handlers) handleDeleteSpace(w http.ResponseWriter, r *http.Request) {
+	space, err := h.spaceFromRequest(r)
+	if errors.Is(err, ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	confirm := strings.TrimSpace(r.FormValue("confirm"))
+	if confirm != space.Name {
+		spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
+		SettingsView(*space, spaces, h.viewUser(r), "Type the space name to confirm deletion.").Render(r.Context(), w)
+		return
+	}
+
+	if err := h.store.DeleteSpace(r.Context(), space.ID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/app", http.StatusSeeOther)
 }
 
 func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {

@@ -84,6 +84,7 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 								@lensLink(space.Slug, "threads", "Threads", activeLens, threadsIcon())
 								@lensLink(space.Slug, "people", "People", activeLens, peopleIcon())
 								@lensLink(space.Slug, "activity", "Activity", activeLens, activityIcon())
+								@lensLink(space.Slug, "settings", "Settings", activeLens, settingsIcon())
 							</nav>
 						</div>
 						<!-- Spaces -->
@@ -164,6 +165,13 @@ templ peopleIcon() {
 templ activityIcon() {
 	<svg class="w-4 h-4 text-warm-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+	</svg>
+}
+
+templ settingsIcon() {
+	<svg class="w-4 h-4 text-warm-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
 	</svg>
 }
 
@@ -588,6 +596,90 @@ templ opItem(o Op) {
 			{ o.Op }
 		</span>
 	</div>
+}
+
+// ── Settings ────────────────────────────────────────────────────
+
+templ SettingsView(space Space, spaces []Space, user ViewUser, errMsg string) {
+	@appLayout(space, spaces, "settings", user) {
+		<div class="max-w-xl mx-auto p-6 space-y-8">
+			<h1 class="text-xl font-medium text-warm">Settings</h1>
+			if errMsg != "" {
+				<div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+					{ errMsg }
+				</div>
+			}
+			<!-- General settings form -->
+			<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/settings") } class="space-y-5">
+				<div>
+					<label for="name" class="block text-sm font-medium text-warm-muted mb-1">Name</label>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						value={ space.Name }
+						required
+						class="w-full bg-elevated border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:border-brand"
+					/>
+				</div>
+				<div>
+					<label for="description" class="block text-sm font-medium text-warm-muted mb-1">Description</label>
+					<textarea
+						id="description"
+						name="description"
+						rows="3"
+						class="w-full bg-elevated border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:border-brand resize-none"
+					>{ space.Description }</textarea>
+				</div>
+				<div>
+					<label for="visibility" class="block text-sm font-medium text-warm-muted mb-1">Visibility</label>
+					<select
+						id="visibility"
+						name="visibility"
+						class="w-full bg-elevated border border-edge rounded-lg px-3 py-2 text-sm text-warm focus:outline-none focus:border-brand"
+					>
+						<option value="private" selected?={ space.Visibility == "private" }>Private — only you can see it</option>
+						<option value="public" selected?={ space.Visibility == "public" }>Public — visible on Discover and accessible by anyone</option>
+					</select>
+				</div>
+				<button
+					type="submit"
+					class="bg-brand text-void text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-dark transition-colors"
+				>
+					Save changes
+				</button>
+			</form>
+			<!-- Danger zone -->
+			<div class="border border-red-500/30 rounded-lg p-5 space-y-4">
+				<h2 class="text-lg font-medium text-red-400">Danger zone</h2>
+				<p class="text-sm text-warm-muted">
+					Deleting a space permanently removes all its nodes, comments, and activity.
+					This cannot be undone.
+				</p>
+				<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/delete") } class="space-y-3">
+					<div>
+						<label for="confirm" class="block text-sm text-warm-muted mb-1">
+							Type <span class="font-medium text-warm">{ space.Name }</span> to confirm
+						</label>
+						<input
+							type="text"
+							id="confirm"
+							name="confirm"
+							placeholder={ space.Name }
+							required
+							class="w-full bg-elevated border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:border-red-500/50"
+						/>
+					</div>
+					<button
+						type="submit"
+						class="bg-red-500/15 text-red-400 text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-500/25 transition-colors"
+					>
+						Delete this space
+					</button>
+				</form>
+			</div>
+		</div>
+	}
 }
 
 // ── Node detail ─────────────────────────────────────────────────
