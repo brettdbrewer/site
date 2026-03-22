@@ -74,8 +74,7 @@ func main() {
 	// Static files.
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// Pages.
-	mux.HandleFunc("GET /{$}", handleHome)
+	// Pages (home is registered after auth setup to support redirect).
 	mux.HandleFunc("GET /blog", handleBlogIndex)
 	mux.HandleFunc("GET /blog/{slug}", handleBlogPost)
 
@@ -200,12 +199,23 @@ func main() {
 		graphHandlers.Register(mux)
 		log.Println("app enabled (DATABASE_URL set)")
 
+		// Home: redirect logged-in users to /app, show landing for anonymous.
+		mux.Handle("GET /{$}", readWrap(func(w http.ResponseWriter, r *http.Request) {
+			user := auth.UserFromContext(r.Context())
+			if user != nil && user.ID != "anonymous" {
+				http.Redirect(w, r, "/app", http.StatusSeeOther)
+				return
+			}
+			handleHome(w, r)
+		}))
+
 		// Redirect old /work to /app.
 		mux.HandleFunc("GET /work", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/app", http.StatusMovedPermanently)
 		})
 	} else {
 		log.Println("app disabled (no DATABASE_URL)")
+		mux.HandleFunc("GET /{$}", handleHome)
 		mux.HandleFunc("GET /app", func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "App requires DATABASE_URL", http.StatusServiceUnavailable)
 		})
