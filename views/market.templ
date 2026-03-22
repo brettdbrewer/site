@@ -6,6 +6,7 @@ import "fmt"
 type MarketTask struct {
 	ID        string
 	SpaceSlug string
+	SpaceName string
 	Title     string
 	Body      string
 	Priority  string
@@ -48,6 +49,9 @@ templ marketCard(t MarketTask) {
 					<p class="text-sm text-warm-muted mt-1 leading-relaxed line-clamp-2">{ t.Body }</p>
 				}
 				<div class="flex items-center gap-3 mt-2 text-xs text-warm-faint">
+					if t.SpaceName != "" {
+						<span class="px-1.5 py-0.5 rounded bg-elevated text-warm-muted">{ t.SpaceName }</span>
+					}
 					<span>by { t.Author }</span>
 				</div>
 			</div>

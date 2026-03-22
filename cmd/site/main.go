@@ -272,15 +272,16 @@ func main() {
 		if err != nil {
 			log.Printf("market: %v", err)
 		}
-		// Resolve space slugs for links.
+		// Resolve space info for links.
 		var tasks []views.MarketTask
 		for _, n := range nodes {
-			slug := ""
+			slug, name := "", ""
 			if sp, _ := graphStore.GetSpaceByID(r.Context(), n.SpaceID); sp != nil {
 				slug = sp.Slug
+				name = sp.Name
 			}
 			tasks = append(tasks, views.MarketTask{
-				ID: n.ID, SpaceSlug: slug, Title: n.Title,
+				ID: n.ID, SpaceSlug: slug, SpaceName: name, Title: n.Title,
 				Body: n.Body, Priority: n.Priority, Author: n.Author,
 			})
 		}
