@@ -306,7 +306,7 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 		return fmt.Errorf("create node: %w", err)
 	}
 
-	// Create any tasks the Mind mentioned.
+	// Create any tasks the Mind mentioned and add links to the conversation.
 	for _, t := range tasks {
 		taskNode, err := m.store.CreateNode(ctx, CreateNodeParams{
 			SpaceID:    spaceID,
@@ -321,6 +321,12 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 		})
 		if err == nil {
 			m.store.RecordOp(ctx, spaceID, taskNode.ID, agentName, agentID, "intend", nil)
+			// Add a follow-up message linking to the task.
+			taskLink := fmt.Sprintf("Created task: [%s](/app/%s/node/%s)", t.Title, spaceSlug, taskNode.ID)
+			m.store.CreateNode(ctx, CreateNodeParams{
+				SpaceID: spaceID, ParentID: convo.ID, Kind: KindComment,
+				Body: taskLink, Author: agentName, AuthorID: agentID, AuthorKind: "agent",
+			})
 			log.Printf("mind: created task %q from conversation", t.Title)
 			// Auto-work on the task.
 			go m.OnTaskAssigned(spaceID, spaceSlug, taskNode, agentID)
