@@ -168,6 +168,7 @@ func main() {
 					viewKeys = append(viewKeys, graph.ViewAPIKey{
 						ID:        k.ID,
 						Name:      k.Name,
+						AgentName: k.AgentName,
 						CreatedAt: k.CreatedAt.Format("Jan 2, 2006"),
 					})
 				}

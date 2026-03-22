@@ -22,6 +22,7 @@ import (
 type APIKey struct {
 	ID        string
 	Name      string
+	AgentName string // If non-empty, this key authenticates as this agent identity.
 	UserID    string
 	CreatedAt time.Time
 }
@@ -94,9 +95,17 @@ CREATE TABLE IF NOT EXISTS api_keys (
     name TEXT NOT NULL DEFAULT '',
     key_hash TEXT UNIQUE NOT NULL,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    agent_name TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 `)
+	if err != nil {
+		return err
+	}
+
+	// Add agent_name column if it doesn't exist (migration for existing databases).
+	_, err = a.db.ExecContext(context.Background(), `
+		ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS agent_name TEXT NOT NULL DEFAULT ''`)
 	return err
 }
 
@@ -288,8 +297,9 @@ func (a *Auth) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "default"
 	}
+	agentName := strings.TrimSpace(r.FormValue("agent_name"))
 
-	rawKey, err := a.createAPIKey(r.Context(), user.ID, name)
+	rawKey, err := a.createAPIKey(r.Context(), user.ID, name, agentName)
 	if err != nil {
 		log.Printf("auth: create api key: %v", err)
 		http.Error(w, "failed to create key", http.StatusInternalServerError)
@@ -336,7 +346,7 @@ func (a *Auth) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 // ListAPIKeys returns all API keys for a user (metadata only, no raw keys).
 func (a *Auth) ListAPIKeys(ctx context.Context, userID string) ([]APIKey, error) {
 	rows, err := a.db.QueryContext(ctx,
-		`SELECT id, name, user_id, created_at FROM api_keys WHERE user_id = $1 ORDER BY created_at`, userID)
+		`SELECT id, name, user_id, agent_name, created_at FROM api_keys WHERE user_id = $1 ORDER BY created_at`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list api keys: %w", err)
 	}
@@ -345,7 +355,7 @@ func (a *Auth) ListAPIKeys(ctx context.Context, userID string) ([]APIKey, error)
 	var keys []APIKey
 	for rows.Next() {
 		var k APIKey
-		if err := rows.Scan(&k.ID, &k.Name, &k.UserID, &k.CreatedAt); err != nil {
+		if err := rows.Scan(&k.ID, &k.Name, &k.UserID, &k.AgentName, &k.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan api key: %w", err)
 		}
 		keys = append(keys, k)
@@ -425,14 +435,14 @@ func (a *Auth) userFromBearer(r *http.Request) *User {
 }
 
 // createAPIKey generates a new API key, stores its hash, returns the raw key.
-func (a *Auth) createAPIKey(ctx context.Context, userID, name string) (string, error) {
+func (a *Auth) createAPIKey(ctx context.Context, userID, name, agentName string) (string, error) {
 	rawKey := "lv_" + newID() + newID() // 64 hex chars + prefix
 	hash := hashKey(rawKey)
 	id := newID()
 
 	_, err := a.db.ExecContext(ctx,
-		`INSERT INTO api_keys (id, name, key_hash, user_id) VALUES ($1, $2, $3, $4)`,
-		id, name, hash, userID)
+		`INSERT INTO api_keys (id, name, key_hash, user_id, agent_name) VALUES ($1, $2, $3, $4, $5)`,
+		id, name, hash, userID, agentName)
 	if err != nil {
 		return "", fmt.Errorf("insert api key: %w", err)
 	}
@@ -440,17 +450,23 @@ func (a *Auth) createAPIKey(ctx context.Context, userID, name string) (string, e
 }
 
 // userByAPIKey looks up a user by raw API key (hashes it first).
+// If the key has an agent_name, it overrides the user's display name —
+// the key authenticates as the agent identity, not the human.
 func (a *Auth) userByAPIKey(ctx context.Context, rawKey string) (*User, error) {
 	hash := hashKey(rawKey)
 	var u User
+	var agentName string
 	err := a.db.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.name, u.picture
+		SELECT u.id, u.email, u.name, u.picture, k.agent_name
 		FROM users u
 		JOIN api_keys k ON k.user_id = u.id
 		WHERE k.key_hash = $1`, hash,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Picture)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Picture, &agentName)
 	if err != nil {
 		return nil, err
+	}
+	if agentName != "" {
+		u.Name = agentName
 	}
 	return &u, nil
 }

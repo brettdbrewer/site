@@ -23,6 +23,7 @@ type ViewUser struct {
 type ViewAPIKey struct {
 	ID        string
 	Name      string
+	AgentName string
 	CreatedAt string
 }
 

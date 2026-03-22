@@ -1011,16 +1011,24 @@ templ APIKeysView(keys []ViewAPIKey, user ViewUser) {
 				<!-- Create new key -->
 				<div class="bg-surface rounded-lg border border-edge p-6 mb-8">
 					<h2 class="text-sm font-medium text-warm mb-4">Create new key</h2>
-					<form hx-post="/auth/api-keys" hx-target="#key-result" hx-swap="innerHTML" class="flex gap-3">
+					<form hx-post="/auth/api-keys" hx-target="#key-result" hx-swap="innerHTML" class="space-y-3">
+						<div class="flex gap-3">
+							<input
+								type="text"
+								name="name"
+								placeholder="Key name (e.g. hive-agent)"
+								class="flex-1 text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"
+							/>
+							<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium whitespace-nowrap">
+								Create Key
+							</button>
+						</div>
 						<input
 							type="text"
-							name="name"
-							placeholder="Key name (e.g. hive-agent)"
-							class="flex-1 text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"
+							name="agent_name"
+							placeholder="Agent identity (optional — posts appear as this name)"
+							class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"
 						/>
-						<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium whitespace-nowrap">
-							Create Key
-						</button>
 					</form>
 					<div id="key-result" class="mt-4"></div>
 				</div>
@@ -1034,6 +1042,9 @@ templ APIKeysView(keys []ViewAPIKey, user ViewUser) {
 							<div class="px-6 py-4 flex items-center justify-between border-b border-edge last:border-0">
 								<div>
 									<span class="text-sm font-medium text-warm">{ key.Name }</span>
+									if key.AgentName != "" {
+										<span class="text-xs text-brand ml-2">posts as { key.AgentName }</span>
+									}
 									<span class="text-xs text-warm-muted ml-3">Created { key.CreatedAt }</span>
 								</div>
 								<form method="POST" action={ templ.SafeURL("/auth/api-keys/" + key.ID + "/delete") }>
