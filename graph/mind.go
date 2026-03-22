@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // Mind responds to conversation messages via Claude.
@@ -80,7 +82,7 @@ func (m *Mind) findAgentParticipant(tags []string) (string, error) {
 	var name sql.NullString
 	err := m.db.QueryRow(
 		`SELECT name FROM users WHERE name = ANY($1) AND kind = 'agent' LIMIT 1`,
-		"{"+strings.Join(tags, ",")+"}", // Postgres array literal
+		pq.Array(tags),
 	).Scan(&name)
 	if err == sql.ErrNoRows {
 		return "", nil
