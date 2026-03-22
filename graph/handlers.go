@@ -497,7 +497,13 @@ func (h *Handlers) handleConversations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	agents, _ := h.store.ListAgentNames(r.Context())
-	ConversationsView(*space, spaces, convos, h.viewUser(r), agents).Render(r.Context(), w)
+	// Collect all tag IDs and resolve to display names.
+	var allIDs []string
+	for _, c := range convos {
+		allIDs = append(allIDs, c.Tags...)
+	}
+	nameMap := h.store.ResolveUserNames(r.Context(), allIDs)
+	ConversationsView(*space, spaces, convos, h.viewUser(r), agents, nameMap).Render(r.Context(), w)
 }
 
 func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
@@ -613,7 +619,8 @@ func (h *Handlers) handleConversationDetail(w http.ResponseWriter, r *http.Reque
 	hasAgent, _ := h.store.HasAgentParticipant(r.Context(), node.Tags)
 
 	user := h.viewUser(r)
-	ConversationDetailView(*space, *node, messages, user, h.userID(r), hasAgent).Render(r.Context(), w)
+	nameMap := h.store.ResolveUserNames(r.Context(), node.Tags)
+	ConversationDetailView(*space, *node, messages, user, h.userID(r), hasAgent, nameMap).Render(r.Context(), w)
 }
 
 // handleConversationMessages returns new messages since the given timestamp.

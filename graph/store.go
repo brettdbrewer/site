@@ -618,6 +618,29 @@ func (s *Store) ResolveUserID(ctx context.Context, name string) string {
 	return id
 }
 
+// ResolveUserNames maps user IDs to display names. Unknown IDs are returned as-is.
+func (s *Store) ResolveUserNames(ctx context.Context, ids []string) map[string]string {
+	result := make(map[string]string, len(ids))
+	for _, id := range ids {
+		result[id] = id // default to showing the ID
+	}
+	if len(ids) == 0 {
+		return result
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name FROM users WHERE id = ANY($1)`, pq.Array(ids))
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, name string
+		if rows.Scan(&id, &name) == nil {
+			result[id] = name
+		}
+	}
+	return result
+}
+
 // ListAgentNames returns names of all agent users.
 func (s *Store) ListAgentNames(ctx context.Context) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT name FROM users WHERE kind = 'agent' ORDER BY name`)

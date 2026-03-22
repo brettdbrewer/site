@@ -1790,7 +1790,7 @@ func addParticipant(name string) templ.ComponentScript {
 	}
 }
 
-func ConversationsView(space Space, spaces []Space, convos []ConversationSummary, user ViewUser, agents []string) templ.Component {
+func ConversationsView(space Space, spaces []Space, convos []ConversationSummary, user ViewUser, agents []string, nameMap map[string]string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -2012,9 +2012,9 @@ func ConversationsView(space Space, spaces []Space, convos []ConversationSummary
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var94 string
-					templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
+					templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(resolveName(tag, nameMap))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `graph/views.templ`, Line: 664, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `graph/views.templ`, Line: 664, Col: 66}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 					if templ_7745c5c3_Err != nil {
@@ -2064,7 +2064,7 @@ func ConversationsView(space Space, spaces []Space, convos []ConversationSummary
 }
 
 // ── Conversation detail view ────────────────────────────────────
-func ConversationDetailView(space Space, convo Node, messages []Node, user ViewUser, userID string, hasAgent bool) templ.Component {
+func ConversationDetailView(space Space, convo Node, messages []Node, user ViewUser, userID string, hasAgent bool, nameMap map[string]string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -2139,9 +2139,9 @@ func ConversationDetailView(space Space, convo Node, messages []Node, user ViewU
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var100 string
-				templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
+				templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(resolveName(tag, nameMap))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `graph/views.templ`, Line: 701, Col: 43}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `graph/views.templ`, Line: 701, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 				if templ_7745c5c3_Err != nil {
@@ -4533,6 +4533,15 @@ func opBadgeClass(op string) string {
 	default:
 		return "bg-warm-faint/20 text-warm-muted"
 	}
+}
+
+func resolveName(id string, nameMap map[string]string) string {
+	if nameMap != nil {
+		if name, ok := nameMap[id]; ok {
+			return name
+		}
+	}
+	return id
 }
 
 func initial(name string) string {

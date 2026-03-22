@@ -600,7 +600,7 @@ script addParticipant(name string) {
 	input.focus();
 }
 
-templ ConversationsView(space Space, spaces []Space, convos []ConversationSummary, user ViewUser, agents []string) {
+templ ConversationsView(space Space, spaces []Space, convos []ConversationSummary, user ViewUser, agents []string, nameMap map[string]string) {
 	@appLayout(space, spaces, "conversations", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
@@ -661,7 +661,7 @@ templ ConversationsView(space Space, spaces []Space, convos []ConversationSummar
 									if i > 0 {
 										<span class="text-warm-faint">·</span>
 									}
-									<span class="text-warm-muted">{ tag }</span>
+									<span class="text-warm-muted">{ resolveName(tag, nameMap) }</span>
 								}
 							</div>
 							<span class="ml-auto">{ convo.UpdatedAt.Format("Jan 2, 3:04 PM") }</span>
@@ -678,7 +678,7 @@ templ ConversationsView(space Space, spaces []Space, convos []ConversationSummar
 
 // ── Conversation detail view ────────────────────────────────────
 
-templ ConversationDetailView(space Space, convo Node, messages []Node, user ViewUser, userID string, hasAgent bool) {
+templ ConversationDetailView(space Space, convo Node, messages []Node, user ViewUser, userID string, hasAgent bool, nameMap map[string]string) {
 	@appLayout(space, []Space{space}, "conversations", user) {
 		<div class="flex flex-col h-full">
 			<!-- Conversation header -->
@@ -698,7 +698,7 @@ templ ConversationDetailView(space Space, convo Node, messages []Node, user View
 								if i > 0 {
 									<span>·</span>
 								}
-								<span class="text-warm-muted">{ tag }</span>
+								<span class="text-warm-muted">{ resolveName(tag, nameMap) }</span>
 							}
 						</div>
 					</div>
@@ -1508,6 +1508,15 @@ func opBadgeClass(op string) string {
 	default:
 		return "bg-warm-faint/20 text-warm-muted"
 	}
+}
+
+func resolveName(id string, nameMap map[string]string) string {
+	if nameMap != nil {
+		if name, ok := nameMap[id]; ok {
+			return name
+		}
+	}
+	return id
 }
 
 func initial(name string) string {
