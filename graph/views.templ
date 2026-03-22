@@ -352,7 +352,7 @@ templ SpaceOnboarding(user ViewUser) {
 
 // ── Board view (kanban) ─────────────────────────────────────────
 
-templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool) {
+templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string) {
 	@appLayout(space, spaces, "board", user) {
 		<div class="p-4 md:p-6 h-full flex flex-col">
 			<div class="flex items-center justify-between mb-4 md:mb-6 gap-2">
@@ -376,14 +376,14 @@ templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUse
 			</div>
 			<div class="flex gap-4 flex-1 overflow-x-auto pb-4">
 				for _, col := range columns {
-					@boardColumn(space.Slug, col, user.Name != "" && user.Name != "Anonymous")
+					@boardColumn(space.Slug, col, user.Name != "" && user.Name != "Anonymous", agents)
 				}
 			</div>
 		</div>
 	}
 }
 
-templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool) {
+templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool, agents []string) {
 	<div class="w-[280px] flex-shrink-0 flex flex-col">
 		<div class="flex items-center gap-2 mb-3 px-1">
 			<span
@@ -400,7 +400,7 @@ templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool) {
 			class="flex-1 space-y-2 overflow-y-auto rounded-lg bg-elevated/60 p-2 min-h-[200px]"
 		>
 			if col.State == StateOpen && canWrite {
-				@newTaskInline(spaceSlug)
+				@newTaskInline(spaceSlug, agents)
 			}
 			for _, node := range col.Nodes {
 				@TaskCard(node, spaceSlug)
@@ -409,7 +409,7 @@ templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool) {
 	</div>
 }
 
-templ newTaskInline(spaceSlug string) {
+templ newTaskInline(spaceSlug string, agents []string) {
 	<div id="new-task-form" class="hidden mb-2">
 		<form
 			hx-post={ "/app/" + spaceSlug + "/op" }
@@ -421,8 +421,20 @@ templ newTaskInline(spaceSlug string) {
 			<input type="hidden" name="op" value="intend"/>
 			<input type="text" name="title" placeholder="Task title" required
 				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
-			<input type="text" name="assignee" id="task-assignee" placeholder="Assign to..."
-				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+			<div>
+				<input type="text" name="assignee" id="task-assignee" placeholder="Assign to..."
+					class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+				if len(agents) > 0 {
+					<div class="flex items-center gap-1 mt-1">
+						for _, agent := range agents {
+							<button type="button"
+								class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors"
+								onclick={ setAssignee(agent) }
+							>{ agent }</button>
+						}
+					</div>
+				}
+			</div>
 			<div class="flex items-center gap-2">
 				<select name="priority" class="text-xs px-2 py-1 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-warm-muted">
 					<option value="medium">Medium</option>
@@ -436,6 +448,10 @@ templ newTaskInline(spaceSlug string) {
 			</div>
 		</form>
 	</div>
+}
+
+script setAssignee(name string) {
+	document.getElementById('task-assignee').value = name;
 }
 
 templ TaskCard(node Node, spaceSlug string) {

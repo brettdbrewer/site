@@ -413,7 +413,8 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	columns := groupByState(tasks)
-	BoardView(*space, spaces, columns, h.viewUser(r), isOwner).Render(r.Context(), w)
+	agents, _ := h.store.ListAgentNames(r.Context())
+	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
