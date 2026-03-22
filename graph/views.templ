@@ -1109,11 +1109,11 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 									<span class="w-5 h-5 rounded-full bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center">{ initial(node.Assignee) }</span>
 									{ node.Assignee }
 								</div>
-							} else if isOwner {
+							} else if user.Name != "" && user.Name != "Anonymous" {
 								<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/app/%s/op", space.Slug)) } class="inline">
 									<input type="hidden" name="op" value="claim"/>
 									<input type="hidden" name="node_id" value={ node.ID }/>
-									<button type="submit" class="text-brand hover:underline text-sm">Claim</button>
+									<button type="submit" class="px-3 py-1 bg-brand text-void rounded-md hover:bg-brand-dark transition-colors text-sm font-medium">Claim this task</button>
 								</form>
 							} else {
 								<span class="text-warm-faint text-sm">Unassigned</span>

@@ -3467,7 +3467,7 @@ func NodeDetailView(space Space, node Node, children []Node, ops []Op, user View
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-				} else if isOwner {
+				} else if user.Name != "" && user.Name != "Anonymous" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 280, "<form method=\"POST\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -3494,7 +3494,7 @@ func NodeDetailView(space Space, node Node, children []Node, ops []Op, user View
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 282, "\"> <button type=\"submit\" class=\"text-brand hover:underline text-sm\">Claim</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 282, "\"> <button type=\"submit\" class=\"px-3 py-1 bg-brand text-void rounded-md hover:bg-brand-dark transition-colors text-sm font-medium\">Claim this task</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
