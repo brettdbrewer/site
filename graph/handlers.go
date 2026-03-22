@@ -1,10 +1,12 @@
 package graph
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -127,6 +129,34 @@ func isHTMX(r *http.Request) bool {
 	return r.Header.Get("HX-Request") == "true"
 }
 
+func wantsJSON(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+// populateFormFromJSON parses a JSON request body into r.Form
+// so r.FormValue() works for both form-encoded and JSON requests.
+func populateFormFromJSON(r *http.Request) {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		return
+	}
+	var m map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		return
+	}
+	if r.Form == nil {
+		r.Form = url.Values{}
+	}
+	for k, v := range m {
+		r.Form.Set(k, v)
+	}
+}
+
 var slugRE = regexp.MustCompile(`[^a-z0-9]+`)
 
 func slugify(s string) string {
@@ -150,6 +180,11 @@ func (h *Handlers) handleSpaceIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"spaces": spaces})
+		return
+	}
+
 	if len(spaces) == 0 {
 		SpaceOnboarding(h.viewUser(r)).Render(r.Context(), w)
 		return
@@ -159,6 +194,7 @@ func (h *Handlers) handleSpaceIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
+	populateFormFromJSON(r)
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
@@ -187,6 +223,11 @@ func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
+
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusCreated, map[string]any{"space": space})
+		return
 	}
 
 	http.Redirect(w, r, "/app/"+space.Slug, http.StatusSeeOther)
@@ -276,6 +317,11 @@ func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space})
+		return
+	}
+
 	// Default lens: board for projects, feed for communities.
 	lens := "board"
 	if space.Kind == SpaceCommunity {
@@ -311,6 +357,11 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "nodes": tasks})
+		return
+	}
+
 	columns := groupByState(tasks)
 	BoardView(*space, spaces, columns, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
@@ -338,6 +389,11 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "nodes": posts})
+		return
+	}
+
 	FeedView(*space, spaces, posts, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
@@ -361,6 +417,11 @@ func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "nodes": threads})
 		return
 	}
 
@@ -402,6 +463,11 @@ func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
 		members = append(members, *m)
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "members": members})
+		return
+	}
+
 	PeopleView(*space, spaces, members, h.viewUser(r)).Render(r.Context(), w)
 }
 
@@ -421,6 +487,11 @@ func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
 	ops, err := h.store.ListOps(r.Context(), space.ID, 50)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "ops": ops})
 		return
 	}
 
@@ -468,6 +539,11 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "node": node, "children": children, "ops": ops})
+		return
+	}
+
 	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
@@ -476,6 +552,8 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 // ────────────────────────────────────────────────────────────────────
 
 func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
+	populateFormFromJSON(r)
+
 	space, err := h.spaceFromRequest(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
@@ -512,6 +590,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, "intend", nil)
 
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "intend"})
+			return
+		}
 		if isHTMX(r) {
 			TaskCard(*node, space.Slug).Render(ctx, w)
 			return
@@ -537,6 +619,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, "decompose", nil)
+
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "decompose"})
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, parentID), http.StatusSeeOther)
 
 	case "express":
@@ -559,6 +646,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, "express", nil)
 
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "express"})
+			return
+		}
 		if isHTMX(r) {
 			FeedCard(*node, space.Slug).Render(ctx, w)
 			return
@@ -584,6 +675,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, "discuss", nil)
+
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "discuss"})
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, node.ID), http.StatusSeeOther)
 
 	case "respond":
@@ -606,6 +702,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, "respond", nil)
 
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "respond"})
+			return
+		}
 		if isHTMX(r) {
 			CommentItem(*node).Render(ctx, w)
 			return
@@ -623,6 +723,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, nodeID, actor, "complete", nil)
+
+		if wantsJSON(r) {
+			node, _ := h.store.GetNode(ctx, nodeID)
+			writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": "complete"})
+			return
+		}
 
 		node, _ := h.store.GetNode(ctx, nodeID)
 		if isHTMX(r) && node != nil {
@@ -643,6 +749,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, nodeID, actor, "assign", nil)
+
+		if wantsJSON(r) {
+			node, _ := h.store.GetNode(ctx, nodeID)
+			writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": "assign"})
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, nodeID), http.StatusSeeOther)
 
 	case "claim":
@@ -656,6 +768,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, nodeID, actor, "claim", nil)
+
+		if wantsJSON(r) {
+			node, _ := h.store.GetNode(ctx, nodeID)
+			writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": "claim"})
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, nodeID), http.StatusSeeOther)
 
 	case "prioritize":
@@ -670,6 +788,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.store.RecordOp(ctx, space.ID, nodeID, actor, "prioritize", nil)
+
+		if wantsJSON(r) {
+			node, _ := h.store.GetNode(ctx, nodeID)
+			writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": "prioritize"})
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/app/%s/node/%s", space.Slug, nodeID), http.StatusSeeOther)
 
 	default:
@@ -682,6 +806,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 // ────────────────────────────────────────────────────────────────────
 
 func (h *Handlers) handleNodeState(w http.ResponseWriter, r *http.Request) {
+	populateFormFromJSON(r)
 	space, err := h.spaceFromRequest(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
@@ -720,6 +845,10 @@ func (h *Handlers) handleNodeState(w http.ResponseWriter, r *http.Request) {
 	h.store.RecordOp(r.Context(), space.ID, nodeID, h.userName(r), opName, nil)
 
 	node, _ = h.store.GetNode(r.Context(), nodeID)
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": opName})
+		return
+	}
 	if isHTMX(r) && node != nil {
 		TaskCard(*node, space.Slug).Render(r.Context(), w)
 		return
@@ -728,6 +857,7 @@ func (h *Handlers) handleNodeState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleNodeUpdate(w http.ResponseWriter, r *http.Request) {
+	populateFormFromJSON(r)
 	space, err := h.spaceFromRequest(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
@@ -766,6 +896,10 @@ func (h *Handlers) handleNodeUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	node, _ := h.store.GetNode(r.Context(), nodeID)
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"node": node})
+		return
+	}
 	if isHTMX(r) && node != nil {
 		TaskCard(*node, space.Slug).Render(r.Context(), w)
 		return
@@ -790,6 +924,10 @@ func (h *Handlers) handleNodeDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": nodeID})
+		return
+	}
 	if isHTMX(r) {
 		w.Header().Set("HX-Redirect", "/app/"+space.Slug+"/board")
 		w.WriteHeader(http.StatusOK)

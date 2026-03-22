@@ -60,46 +60,46 @@ const (
 
 // Space is a container — project, community, or team.
 type Space struct {
-	ID          string
-	Slug        string
-	Name        string
-	Description string
-	OwnerID     string
-	Kind        string
-	Visibility  string
-	CreatedAt   time.Time
+	ID          string    `json:"id"`
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	OwnerID     string    `json:"owner_id"`
+	Kind        string    `json:"kind"`
+	Visibility  string    `json:"visibility"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // Node is a universal content unit — task, post, thread, or comment.
 type Node struct {
-	ID           string
-	SpaceID      string
-	ParentID     string
-	Kind         string
-	Title        string
-	Body         string
-	State        string
-	Priority     string
-	Assignee     string
-	Author       string
-	Tags         []string
-	DueDate      *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	ChildCount   int // populated on read
-	ChildDone    int // populated on read (tasks only)
-	BlockerCount int // populated on read (tasks only)
+	ID           string     `json:"id"`
+	SpaceID      string     `json:"space_id"`
+	ParentID     string     `json:"parent_id,omitempty"`
+	Kind         string     `json:"kind"`
+	Title        string     `json:"title"`
+	Body         string     `json:"body"`
+	State        string     `json:"state"`
+	Priority     string     `json:"priority"`
+	Assignee     string     `json:"assignee"`
+	Author       string     `json:"author"`
+	Tags         []string   `json:"tags"`
+	DueDate      *time.Time `json:"due_date,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	ChildCount   int        `json:"child_count"`
+	ChildDone    int        `json:"child_done"`
+	BlockerCount int        `json:"blocker_count"`
 }
 
 // Op is a recorded grammar operation.
 type Op struct {
-	ID        string
-	SpaceID   string
-	NodeID    string
-	Actor     string
-	Op        string
-	Payload   json.RawMessage
-	CreatedAt time.Time
+	ID        string          `json:"id"`
+	SpaceID   string          `json:"space_id"`
+	NodeID    string          `json:"node_id,omitempty"`
+	Actor     string          `json:"actor"`
+	Op        string          `json:"op"`
+	Payload   json.RawMessage `json:"payload"`
+	CreatedAt time.Time       `json:"created_at"`
 }
 
 // ────────────────────────────────────────────────────────────────────
