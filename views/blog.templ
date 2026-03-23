@@ -107,7 +107,7 @@ templ BlogIndex(posts []Post) {
 }
 
 templ blogCard(post Post) {
-	<a href={ templ.SafeURL("/blog/" + post.Slug) } class="block p-6 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+	<a href={ templ.SafeURL("/blog/" + post.Slug) } class="block p-6 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 		<time class="text-sm text-warm-faint">{ post.Date.Format("January 2006") }</time>
 		<h2 class="text-xl font-medium mt-1 text-warm">{ post.Title }</h2>
 		<p class="text-warm-muted mt-2">{ post.Summary }</p>

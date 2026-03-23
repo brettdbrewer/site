@@ -58,7 +58,7 @@ templ DiscoverPage(spaces []DiscoverSpace, query string, kindFilter string) {
 }
 
 templ discoverCard(sp DiscoverSpace) {
-	<a href={ templ.SafeURL("/app/" + sp.Slug) } class="block p-6 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+	<a href={ templ.SafeURL("/app/" + sp.Slug) } class="block p-6 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 		<div class="flex items-center gap-2 mb-2">
 			<span class={ "text-[10px] font-medium px-2 py-0.5 rounded-full", discoverKindClass(sp.Kind) }>
 				{ sp.Kind }

@@ -21,7 +21,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 				<h2 class="text-xl font-medium mb-1 text-warm">Grammar</h2>
 				<p class="text-warm-muted text-sm mb-4">The operational heart. What you can do, at every level.</p>
 				<div class="space-y-3">
-					<a href="/reference/cognitive-grammar" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+					<a href="/reference/cognitive-grammar" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 						<div class="flex items-baseline gap-3">
 							<span class="text-sm font-mono text-warm-faint">C</span>
 							<div>
@@ -40,7 +40,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 							</div>
 						</div>
 					</a>
-					<a href="/reference/grammar" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+					<a href="/reference/grammar" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 						<div class="flex items-baseline gap-3">
 							<span class="text-sm font-mono text-warm-faint">G</span>
 							<div>
@@ -58,7 +58,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 							</div>
 						</div>
 					</a>
-					<a href="/reference/grammars" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+					<a href="/reference/grammars" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 						<div class="flex items-baseline gap-3">
 							<span class="text-sm font-mono text-warm-faint">1-13</span>
 							<div>
@@ -89,7 +89,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 				</p>
 				<div class="space-y-3">
 					for _, layer := range layers {
-						<a href={ templ.SafeURL(fmt.Sprintf("/reference/layers/%d", layer.Number)) } class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+						<a href={ templ.SafeURL(fmt.Sprintf("/reference/layers/%d", layer.Number)) } class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 							<div class="flex items-baseline gap-3">
 								<span class="text-sm font-mono text-warm-faint">{ fmt.Sprintf("%d", layer.Number) }</span>
 								<div>
@@ -111,7 +111,7 @@ templ ReferenceIndex(layers []Layer, agentPrims []Primitive, grammars []RefPage)
 				<h2 class="text-xl font-medium mb-1 text-warm">Agent</h2>
 				<p class="text-warm-muted text-sm mb-4">What agents are and can do. The interface between ontology and grammar.</p>
 				<div class="space-y-3">
-					<a href="/reference/agents" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+					<a href="/reference/agents" class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 						<div class="flex items-baseline gap-3">
 							<span class="text-sm font-mono text-warm-faint">A</span>
 							<div>
@@ -462,7 +462,7 @@ templ GrammarIndex(grammars []RefPage) {
 			</div>
 			<div class="space-y-3">
 				for _, g := range grammars {
-					<a href={ templ.SafeURL("/reference/grammars/" + g.Slug) } class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+					<a href={ templ.SafeURL("/reference/grammars/" + g.Slug) } class="block p-5 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 						<div class="flex items-baseline gap-3">
 							<span class="text-sm font-mono text-warm-faint">{ fmt.Sprintf("%d", g.Order) }</span>
 							<div>

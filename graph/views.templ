@@ -38,8 +38,11 @@ templ themeBlock() {
 			50% { opacity: 1; transform: scale(1.03); }
 		}
 		.brand-breathe { animation: breathe 4s ease-in-out infinite; }
+		@keyframes skeleton-pulse { 0%,100%{opacity:0.4} 50%{opacity:0.7} }
+		.skeleton { animation: skeleton-pulse 1.5s ease-in-out infinite; background-color: #18181b; border-radius: 0.375rem; }
 		@media (prefers-reduced-motion: reduce) {
 			.brand-breathe { animation: none; }
+			.skeleton { animation: none; }
 		}
 	</style>
 }
@@ -494,7 +497,7 @@ templ Dashboard(spaces []Space, tasks []DashboardTask, convos []DashboardConvers
 							<h2 class="text-sm font-medium text-warm-muted uppercase tracking-wide mb-3">Your Spaces</h2>
 							<div class="space-y-2">
 								for _, sp := range spaces {
-									<a href={ templ.SafeURL("/app/" + sp.Slug) } class="block p-4 bg-surface rounded-lg border border-edge hover:border-brand hover:shadow-md hover:shadow-brand/5 transition-all">
+									<a href={ templ.SafeURL("/app/" + sp.Slug) } class="block p-4 bg-surface rounded-lg border border-edge hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200">
 										<div class="flex items-center gap-2">
 											<span class={ "text-[10px] font-medium px-2 py-0.5 rounded-full", kindBadgeClass(sp.Kind) }>
 												{ sp.Kind }
@@ -1083,13 +1086,28 @@ script toggleForm(id string) {
 }
 
 templ TaskCard(node Node, spaceSlug string) {
+	<div class="relative group">
+		<!-- Hover action bar -->
+		<div class="absolute -top-3 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex gap-1">
+			if node.State != StateDone {
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s/state", spaceSlug, node.ID)) } class="inline">
+					<input type="hidden" name="state" value={ StateDone }/>
+					<button type="submit" class="w-6 h-6 rounded-md bg-surface border border-edge hover:border-emerald-500/50 hover:bg-emerald-500/10 flex items-center justify-center transition-colors" title="Complete" onclick="event.stopPropagation()">
+						<svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+					</button>
+				</form>
+			}
+			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) } class="w-6 h-6 rounded-md bg-surface border border-edge hover:border-brand/50 hover:bg-brand/10 flex items-center justify-center transition-colors" title="Open" onclick="event.stopPropagation()">
+				<svg class="w-3 h-3 text-warm-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+			</a>
+		</div>
 	<a
 		href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) }
 		id={ "node-" + node.ID }
 		draggable="true"
 		data-node-id={ node.ID }
 		data-space-slug={ spaceSlug }
-		class="group block bg-surface rounded-lg border border-edge shadow-sm p-3 hover:border-brand/30 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+		class="block bg-surface rounded-lg border border-edge shadow-sm p-3 hover:border-brand/30 hover:shadow-lg hover:shadow-brand/10 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
 		ondragstart="event.dataTransfer.setData('text/plain',this.dataset.nodeId);event.dataTransfer.effectAllowed='move';this.style.opacity='0.4'"
 		ondragend="this.style.opacity='1'"
 	>
@@ -1164,6 +1182,7 @@ templ TaskCard(node Node, spaceSlug string) {
 			</select>
 		</div>
 	</a>
+	</div>
 }
 
 // ── Feed view ───────────────────────────────────────────────────
