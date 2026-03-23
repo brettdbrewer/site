@@ -1575,7 +1575,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			reason = "challenged"
 		}
 		payload, _ := json.Marshal(map[string]string{"reason": reason})
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "challenge", payload)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "challenge", payload)
+
+		// Notify claim author.
+		if node.AuthorID != actorID && op != nil {
+			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "challenged your claim: "+node.Title)
+		}
 
 		// Update claim state to challenged.
 		if err := h.store.UpdateNodeState(ctx, nodeID, ClaimChallenged); err != nil {
@@ -1613,7 +1618,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		if reason != "" {
 			payload, _ = json.Marshal(map[string]string{"reason": reason})
 		}
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "verify", payload)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "verify", payload)
+		if node.AuthorID != actorID && op != nil {
+			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "verified your claim: "+node.Title)
+		}
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "verify"})
 			return
@@ -1644,7 +1652,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		if reason != "" {
 			payload, _ = json.Marshal(map[string]string{"reason": reason})
 		}
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "retract", payload)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "retract", payload)
+		if node.AuthorID != actorID && op != nil {
+			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "retracted your claim: "+node.Title)
+		}
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "retract"})
 			return
@@ -1772,7 +1783,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		payload, _ := json.Marshal(map[string]string{"vote": vote})
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "vote", payload)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "vote", payload)
+
+		// Notify proposal author.
+		if node.AuthorID != actorID && op != nil {
+			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "voted "+vote+" on your proposal: "+node.Title)
+		}
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "vote", "vote": vote})
