@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -854,6 +855,17 @@ templ newTaskInline(spaceSlug string, agents []string) {
 
 script setAssignee(name string) {
 	document.getElementById('task-assignee').value = name;
+}
+
+script toggleForm(id string) {
+	var el = document.getElementById(id);
+	if (!el) return;
+	// Hide sibling forms first (only one open at a time).
+	var parent = el.parentElement;
+	parent.querySelectorAll('form[id]').forEach(function(f) {
+		if (f.id !== id) f.classList.add('hidden');
+	});
+	el.classList.toggle('hidden');
 }
 
 templ TaskCard(node Node, spaceSlug string) {
@@ -1973,16 +1985,67 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 				</div>
 			}
 
+			<!-- Claim evidence actions -->
+			if node.Kind == KindClaim && (node.State == ClaimClaimed || node.State == ClaimChallenged) && user.Name != "" && user.Name != "Anonymous" {
+				<div class="space-y-3">
+					<h2 class="text-sm font-medium text-warm-muted">Epistemic actions</h2>
+					<div class="flex gap-2">
+						<button type="button" onclick={ toggleForm("detail-challenge") } class="text-xs px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-colors">
+							Challenge
+						</button>
+						<button type="button" onclick={ toggleForm("detail-verify") } class="text-xs px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors">
+							Verify
+						</button>
+						<button type="button" onclick={ toggleForm("detail-retract") } class="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors">
+							Retract
+						</button>
+					</div>
+					<form id="detail-challenge" method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") } class="hidden bg-elevated rounded-lg border border-edge p-4 space-y-2">
+						<input type="hidden" name="op" value="challenge"/>
+						<input type="hidden" name="node_id" value={ node.ID }/>
+						<label class="block text-xs font-medium text-amber-400">Why do you challenge this claim?</label>
+						<textarea name="reason" required placeholder="Provide counter-evidence or reasoning..." rows="3"
+							class="w-full px-3 py-2 bg-surface border border-edge rounded-lg text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"></textarea>
+						<button type="submit" class="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium">Submit challenge</button>
+					</form>
+					<form id="detail-verify" method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") } class="hidden bg-elevated rounded-lg border border-edge p-4 space-y-2">
+						<input type="hidden" name="op" value="verify"/>
+						<input type="hidden" name="node_id" value={ node.ID }/>
+						<label class="block text-xs font-medium text-emerald-400">Evidence supporting this claim</label>
+						<textarea name="reason" placeholder="Provide supporting evidence or reasoning..." rows="3"
+							class="w-full px-3 py-2 bg-surface border border-edge rounded-lg text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"></textarea>
+						<button type="submit" class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm font-medium">Confirm verification</button>
+					</form>
+					<form id="detail-retract" method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") } class="hidden bg-elevated rounded-lg border border-edge p-4 space-y-2">
+						<input type="hidden" name="op" value="retract"/>
+						<input type="hidden" name="node_id" value={ node.ID }/>
+						<label class="block text-xs font-medium text-red-400">Why is this claim being retracted?</label>
+						<textarea name="reason" placeholder="Explain why this claim is no longer valid..." rows="3"
+							class="w-full px-3 py-2 bg-surface border border-edge rounded-lg text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"></textarea>
+						<button type="submit" class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors text-sm font-medium">Confirm retraction</button>
+					</form>
+				</div>
+			}
+
 			<!-- Activity on this node -->
 			if len(ops) > 0 {
 				<div class="space-y-3">
-					<h2 class="text-sm font-medium text-warm-muted">Activity</h2>
+					if node.Kind == KindClaim {
+						<h2 class="text-sm font-medium text-warm-muted">Evidence trail</h2>
+					} else {
+						<h2 class="text-sm font-medium text-warm-muted">Activity</h2>
+					}
 					<div class="space-y-1">
 						for _, o := range ops {
-							<div class="flex items-center gap-2 text-xs text-warm-faint py-1">
-								<span class="font-medium text-warm-secondary">{ o.Actor }</span>
-								<span class={ "font-medium px-1.5 py-0.5 rounded-full", opBadgeClass(o.Op) }>{ o.Op }</span>
-								<span>{ o.CreatedAt.Format("Jan 2, 3:04 PM") }</span>
+							<div class="py-1">
+								<div class="flex items-center gap-2 text-xs text-warm-faint">
+									<span class="font-medium text-warm-secondary">{ o.Actor }</span>
+									<span class={ "font-medium px-1.5 py-0.5 rounded-full", opBadgeClass(o.Op) }>{ o.Op }</span>
+									<span>{ o.CreatedAt.Format("Jan 2, 3:04 PM") }</span>
+								</div>
+								if isEvidenceOp(o.Op) && opReason(o.Payload) != "" && opReason(o.Payload) != "challenged" {
+									<p class="text-xs text-warm-muted mt-1 ml-4 pl-2 border-l-2 border-edge">{ opReason(o.Payload) }</p>
+								}
 							</div>
 						}
 					</div>
@@ -2467,56 +2530,66 @@ templ KnowledgeView(space Space, spaces []Space, claims []Node, challengeCounts 
 
 templ KnowledgeCard(node Node, spaceSlug string, challenges int) {
 	<div class="p-5 bg-surface rounded-lg border border-edge hover:border-brand/30 transition-all">
-		<div class="flex items-start justify-between gap-3">
-			<div class="flex-1 min-w-0">
-				<div class="flex items-center gap-2 mb-1">
-					@claimStatusBadge(node.State)
-					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) } class="text-sm font-medium text-warm hover:text-brand transition-colors">
-						{ node.Title }
-					</a>
-				</div>
-				if node.Body != "" {
-					<p class="text-xs text-warm-muted mt-1 line-clamp-2">{ truncate(node.Body, 200) }</p>
-				}
-				<div class="flex items-center gap-3 mt-2 text-xs text-warm-faint">
-					if node.AuthorKind == "agent" {
-						<span class="text-violet-400">{ node.Author }</span>
-					} else {
-						<span>{ node.Author }</span>
-					}
-					<span>{ node.CreatedAt.Format("Jan 2, 2006") }</span>
-					if challenges > 0 {
-						<span class="text-amber-400">{ fmt.Sprintf("%d challenge", challenges) }{ pluralS(challenges) }</span>
-					}
-				</div>
-			</div>
-			<div class="flex gap-1 flex-shrink-0">
-				if node.State == ClaimClaimed || node.State == ClaimChallenged {
-					<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") }>
-						<input type="hidden" name="op" value="challenge"/>
-						<input type="hidden" name="node_id" value={ node.ID }/>
-						<input type="hidden" name="reason" value="disputed"/>
-						<button type="submit" class="text-xs px-2 py-1 bg-amber-500/10 text-amber-400 rounded hover:bg-amber-500/20 transition-colors">
-							Challenge
-						</button>
-					</form>
-					<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") }>
-						<input type="hidden" name="op" value="verify"/>
-						<input type="hidden" name="node_id" value={ node.ID }/>
-						<button type="submit" class="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded hover:bg-emerald-500/20 transition-colors">
-							Verify
-						</button>
-					</form>
-					<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") }>
-						<input type="hidden" name="op" value="retract"/>
-						<input type="hidden" name="node_id" value={ node.ID }/>
-						<button type="submit" class="text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 transition-colors">
-							Retract
-						</button>
-					</form>
-				}
-			</div>
+		<div class="flex items-center gap-2 mb-1">
+			@claimStatusBadge(node.State)
+			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) } class="text-sm font-medium text-warm hover:text-brand transition-colors">
+				{ node.Title }
+			</a>
 		</div>
+		if node.Body != "" {
+			<p class="text-xs text-warm-muted mt-1 line-clamp-2">{ truncate(node.Body, 200) }</p>
+		}
+		<div class="flex items-center gap-3 mt-2 text-xs text-warm-faint">
+			if node.AuthorKind == "agent" {
+				<span class="text-violet-400">{ node.Author }</span>
+			} else {
+				<span>{ node.Author }</span>
+			}
+			<span>{ node.CreatedAt.Format("Jan 2, 2006") }</span>
+			if challenges > 0 {
+				<span class="text-amber-400">{ fmt.Sprintf("%d challenge", challenges) }{ pluralS(challenges) }</span>
+			}
+		</div>
+		if node.State == ClaimClaimed || node.State == ClaimChallenged {
+			<div class="flex gap-1 mt-3">
+				<button type="button" onclick={ toggleForm("challenge-" + node.ID) } class="text-xs px-2 py-1 bg-amber-500/10 text-amber-400 rounded hover:bg-amber-500/20 transition-colors">
+					Challenge
+				</button>
+				<button type="button" onclick={ toggleForm("verify-" + node.ID) } class="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded hover:bg-emerald-500/20 transition-colors">
+					Verify
+				</button>
+				<button type="button" onclick={ toggleForm("retract-" + node.ID) } class="text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 transition-colors">
+					Retract
+				</button>
+			</div>
+			<form id={ "challenge-" + node.ID } method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") } class="hidden mt-2 space-y-2">
+				<input type="hidden" name="op" value="challenge"/>
+				<input type="hidden" name="node_id" value={ node.ID }/>
+				<textarea name="reason" required placeholder="Why do you challenge this claim?" rows="2"
+					class="w-full px-3 py-2 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"></textarea>
+				<button type="submit" class="text-xs px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded hover:bg-amber-500/30 transition-colors font-medium">
+					Submit challenge
+				</button>
+			</form>
+			<form id={ "verify-" + node.ID } method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") } class="hidden mt-2 space-y-2">
+				<input type="hidden" name="op" value="verify"/>
+				<input type="hidden" name="node_id" value={ node.ID }/>
+				<textarea name="reason" placeholder="Evidence or reasoning for verification (optional)" rows="2"
+					class="w-full px-3 py-2 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"></textarea>
+				<button type="submit" class="text-xs px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors font-medium">
+					Confirm verification
+				</button>
+			</form>
+			<form id={ "retract-" + node.ID } method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") } class="hidden mt-2 space-y-2">
+				<input type="hidden" name="op" value="retract"/>
+				<input type="hidden" name="node_id" value={ node.ID }/>
+				<textarea name="reason" placeholder="Why is this claim being retracted?" rows="2"
+					class="w-full px-3 py-2 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"></textarea>
+				<button type="submit" class="text-xs px-3 py-1.5 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors font-medium">
+					Confirm retraction
+				</button>
+			</form>
+		}
 	</div>
 }
 
@@ -2540,4 +2613,21 @@ func pluralS(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// opReason extracts the "reason" field from an op's JSON payload.
+func opReason(payload json.RawMessage) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	var m map[string]string
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return ""
+	}
+	return m["reason"]
+}
+
+// isEvidenceOp returns true if the op is a knowledge evidence operation.
+func isEvidenceOp(op string) bool {
+	return op == "challenge" || op == "verify" || op == "retract"
 }

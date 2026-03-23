@@ -1523,6 +1523,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 
 	case "verify":
 		nodeID := r.FormValue("node_id")
+		reason := strings.TrimSpace(r.FormValue("reason"))
 		if nodeID == "" {
 			http.Error(w, "node_id required", http.StatusBadRequest)
 			return
@@ -1540,7 +1541,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "verify", nil)
+		var payload json.RawMessage
+		if reason != "" {
+			payload, _ = json.Marshal(map[string]string{"reason": reason})
+		}
+		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "verify", payload)
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "verify"})
 			return
@@ -1549,6 +1554,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 
 	case "retract":
 		nodeID := r.FormValue("node_id")
+		reason := strings.TrimSpace(r.FormValue("reason"))
 		if nodeID == "" {
 			http.Error(w, "node_id required", http.StatusBadRequest)
 			return
@@ -1566,7 +1572,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "retract", nil)
+		var payload json.RawMessage
+		if reason != "" {
+			payload, _ = json.Marshal(map[string]string{"reason": reason})
+		}
+		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "retract", payload)
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "retract"})
 			return
