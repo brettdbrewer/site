@@ -1336,7 +1336,7 @@ templ ActivityView(space Space, spaces []Space, ops []Op, user ViewUser) {
 			<h1 class="text-xl font-medium text-warm">Activity</h1>
 			<div class="space-y-2">
 				for _, o := range ops {
-					@opItem(o)
+					@opItem(o, space.Slug)
 				}
 				if len(ops) == 0 {
 					<p class="text-center text-warm-faint py-8">No activity yet.</p>
@@ -1346,7 +1346,7 @@ templ ActivityView(space Space, spaces []Space, ops []Op, user ViewUser) {
 	}
 }
 
-templ opItem(o Op) {
+templ opItem(o Op, spaceSlug string) {
 	<div class="flex items-start gap-3 bg-surface rounded-lg border border-edge px-4 py-3">
 		if o.ActorKind == "agent" {
 			<span class="w-6 h-6 rounded-full bg-violet-500/10 text-violet-400 text-[10px] font-bold flex items-center justify-center mt-0.5 flex-shrink-0" title="Agent">
@@ -1363,7 +1363,11 @@ templ opItem(o Op) {
 				if o.ActorKind == "agent" {
 					<span class="text-[9px] font-medium px-1 py-0.5 rounded-full bg-violet-500/10 text-violet-400">agent</span>
 				}
-				<span class="text-warm-muted ml-1">{ o.Op }</span>
+				if o.NodeID != "" {
+					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, o.NodeID)) } class="text-warm-muted hover:text-brand transition-colors ml-1">{ o.Op }</a>
+				} else {
+					<span class="text-warm-muted ml-1">{ o.Op }</span>
+				}
 			</div>
 			<div class="text-xs text-warm-faint mt-0.5">{ o.CreatedAt.Format("Jan 2, 3:04 PM") }</div>
 		</div>
