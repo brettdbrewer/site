@@ -1102,11 +1102,12 @@ func (s *Store) ListPublicActivity(ctx context.Context, limit int) ([]Op, error)
 		limit = 50
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT o.id, o.space_id, COALESCE(o.node_id, ''), o.actor, o.actor_id,
-		       COALESCE(u.kind, 'human'), o.op, o.payload, o.created_at
+		SELECT o.id, o.space_id, COALESCE(o.node_id, ''), COALESCE(n.title, ''),
+		       o.actor, o.actor_id, COALESCE(u.kind, 'human'), o.op, o.payload, o.created_at
 		FROM ops o
 		JOIN spaces s ON s.id = o.space_id AND s.visibility = 'public'
 		LEFT JOIN users u ON u.id = o.actor_id
+		LEFT JOIN nodes n ON n.id = o.node_id
 		ORDER BY o.created_at DESC
 		LIMIT $1`, limit)
 	if err != nil {
@@ -1116,7 +1117,7 @@ func (s *Store) ListPublicActivity(ctx context.Context, limit int) ([]Op, error)
 	var ops []Op
 	for rows.Next() {
 		var o Op
-		if err := rows.Scan(&o.ID, &o.SpaceID, &o.NodeID, &o.Actor, &o.ActorID, &o.ActorKind, &o.Op, &o.Payload, &o.CreatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.SpaceID, &o.NodeID, &o.NodeTitle, &o.Actor, &o.ActorID, &o.ActorKind, &o.Op, &o.Payload, &o.CreatedAt); err != nil {
 			return nil, err
 		}
 		ops = append(ops, o)

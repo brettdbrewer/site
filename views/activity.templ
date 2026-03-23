@@ -10,6 +10,8 @@ type ActivityItem struct {
 	Actor     string
 	ActorKind string // "human" or "agent"
 	Op        string
+	NodeID    string
+	NodeTitle string
 	SpaceName string
 	SpaceSlug string
 	CreatedAt time.Time
@@ -55,7 +57,10 @@ templ activityRow(item ActivityItem) {
 			<span class="text-[9px] font-medium px-1 py-0.5 rounded-full bg-violet-500/10 text-violet-400">agent</span>
 		}
 		<span class={ "text-[10px] font-medium px-1.5 py-0.5 rounded-full", opClass(item.Op) }>{ item.Op }</span>
-		<a href={ templ.SafeURL("/app/" + item.SpaceSlug) } class="text-warm-faint hover:text-brand transition-colors text-xs">
+		if item.NodeTitle != "" && item.NodeID != "" {
+			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", item.SpaceSlug, item.NodeID)) } class="text-warm-secondary hover:text-brand transition-colors text-xs truncate max-w-[200px]">{ item.NodeTitle }</a>
+		}
+		<a href={ templ.SafeURL("/app/" + item.SpaceSlug) } class="text-warm-faint hover:text-brand transition-colors text-xs flex-shrink-0">
 			{ item.SpaceName }
 		</a>
 		<span class="ml-auto text-xs text-warm-faint">{ relativeTimeShort(item.CreatedAt) }</span>

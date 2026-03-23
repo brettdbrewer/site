@@ -331,6 +331,7 @@ func main() {
 			}
 			recentOps = append(recentOps, views.ActivityItem{
 				Actor: o.Actor, ActorKind: o.ActorKind, Op: o.Op,
+				NodeID: o.NodeID, NodeTitle: o.NodeTitle,
 				SpaceName: spaceName, SpaceSlug: spaceSlug, CreatedAt: o.CreatedAt,
 			})
 		}
@@ -419,6 +420,7 @@ func main() {
 			}
 			items = append(items, views.ActivityItem{
 				Actor: o.Actor, ActorKind: o.ActorKind, Op: o.Op,
+				NodeID: o.NodeID, NodeTitle: o.NodeTitle,
 				SpaceName: spaceName, SpaceSlug: spaceSlug, CreatedAt: o.CreatedAt,
 			})
 		}
