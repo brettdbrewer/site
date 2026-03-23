@@ -342,11 +342,12 @@ func (h *Handlers) handleSpaceSettings(w http.ResponseWriter, r *http.Request) {
 
 	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 	reports, _ := h.store.ListReports(r.Context(), space.ID)
+	members, _ := h.store.ListMembers(r.Context(), space.ID, 50)
 	inviteToken := r.URL.Query().Get("invite")
 	if inviteToken == "" {
 		inviteToken = h.store.GetInviteToken(r.Context(), space.ID)
 	}
-	SettingsView(*space, spaces, reports, h.viewUser(r), "", inviteToken).Render(r.Context(), w)
+	SettingsView(*space, spaces, reports, h.viewUser(r), "", inviteToken, members).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleUpdateSpace(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +365,7 @@ func (h *Handlers) handleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 		reports, _ := h.store.ListReports(r.Context(), space.ID)
-		SettingsView(*space, spaces, reports, h.viewUser(r), "Name cannot be empty.", "").Render(r.Context(), w)
+		SettingsView(*space, spaces, reports, h.viewUser(r), "Name cannot be empty.", "", nil).Render(r.Context(), w)
 		return
 	}
 
@@ -397,7 +398,7 @@ func (h *Handlers) handleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	if confirm != space.Name {
 		spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 		reports, _ := h.store.ListReports(r.Context(), space.ID)
-		SettingsView(*space, spaces, reports, h.viewUser(r), "Type the space name to confirm deletion.", "").Render(r.Context(), w)
+		SettingsView(*space, spaces, reports, h.viewUser(r), "Type the space name to confirm deletion.", "", nil).Render(r.Context(), w)
 		return
 	}
 
@@ -1412,6 +1413,31 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, "/app/"+space.Slug, http.StatusSeeOther)
+
+	case "kick":
+		memberID := r.FormValue("member_id")
+		if memberID == "" {
+			http.Error(w, "member_id required", http.StatusBadRequest)
+			return
+		}
+		if space.OwnerID != actorID {
+			http.Error(w, "only space owner can remove members", http.StatusForbidden)
+			return
+		}
+		if memberID == actorID {
+			http.Error(w, "cannot remove yourself", http.StatusBadRequest)
+			return
+		}
+		if err := h.store.LeaveSpace(ctx, space.ID, memberID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		h.store.RecordOp(ctx, space.ID, "", actor, actorID, "kick", nil)
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, map[string]string{"op": "kick"})
+			return
+		}
+		http.Redirect(w, r, "/app/"+space.Slug+"/settings", http.StatusSeeOther)
 
 	case "report":
 		nodeID := r.FormValue("node_id")

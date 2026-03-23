@@ -1441,7 +1441,7 @@ templ opItem(o Op, spaceSlug string) {
 
 // ── Settings ────────────────────────────────────────────────────
 
-templ SettingsView(space Space, spaces []Space, reports []Report, user ViewUser, errMsg string, inviteToken string) {
+templ SettingsView(space Space, spaces []Space, reports []Report, user ViewUser, errMsg string, inviteToken string, members []SpaceMember) {
 	@appLayout(space, spaces, "settings", user) {
 		<div class="max-w-xl mx-auto p-6 space-y-8">
 			<h1 class="text-xl font-medium text-warm">Settings</h1>
@@ -1554,6 +1554,38 @@ templ SettingsView(space Space, spaces []Space, reports []Report, user ViewUser,
 										</button>
 									</form>
 								</div>
+							</div>
+						}
+					</div>
+				</div>
+			}
+			<!-- Members -->
+			if len(members) > 0 {
+				<div class="bg-surface border border-edge rounded-lg p-5 space-y-3">
+					<h2 class="text-sm font-medium text-warm">Members ({ fmt.Sprintf("%d", len(members)) })</h2>
+					<div class="space-y-1">
+						for _, m := range members {
+							<div class="flex items-center justify-between py-2 px-2 rounded hover:bg-elevated transition-colors">
+								<div class="flex items-center gap-2">
+									if m.Kind == "agent" {
+										<span class="w-6 h-6 rounded-full bg-violet-500/10 text-violet-400 text-[10px] font-bold flex items-center justify-center">{ initial(m.UserName) }</span>
+									} else {
+										<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center">{ initial(m.UserName) }</span>
+									}
+									<a href={ templ.SafeURL("/user/" + m.UserName) } class="text-sm text-warm hover:text-brand transition-colors">{ m.UserName }</a>
+									if m.Kind == "agent" {
+										<span class="text-[9px] px-1 py-0.5 rounded bg-violet-500/10 text-violet-400">agent</span>
+									}
+								</div>
+								if m.UserID != space.OwnerID {
+									<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") }>
+										<input type="hidden" name="op" value="kick"/>
+										<input type="hidden" name="member_id" value={ m.UserID }/>
+										<button type="submit" class="text-[10px] text-warm-faint hover:text-red-400 transition-colors px-2 py-1">Remove</button>
+									</form>
+								} else {
+									<span class="text-[10px] text-warm-faint px-2 py-1">owner</span>
+								}
 							</div>
 						}
 					</div>
