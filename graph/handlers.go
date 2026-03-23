@@ -636,10 +636,22 @@ func (h *Handlers) handleConversations(w http.ResponseWriter, r *http.Request) {
 
 	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
+	searchQuery := r.URL.Query().Get("q")
 	convos, err := h.store.ListConversations(r.Context(), space.ID, h.userID(r))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	// Client-side filter by query (conversations use a different query than ListNodes).
+	if searchQuery != "" {
+		var filtered []ConversationSummary
+		sq := strings.ToLower(searchQuery)
+		for _, c := range convos {
+			if strings.Contains(strings.ToLower(c.Title), sq) {
+				filtered = append(filtered, c)
+			}
+		}
+		convos = filtered
 	}
 
 	if wantsJSON(r) {
@@ -654,7 +666,7 @@ func (h *Handlers) handleConversations(w http.ResponseWriter, r *http.Request) {
 		allIDs = append(allIDs, c.Tags...)
 	}
 	nameMap := h.store.ResolveUserNames(r.Context(), allIDs)
-	ConversationsView(*space, spaces, convos, h.viewUser(r), agents, nameMap).Render(r.Context(), w)
+	ConversationsView(*space, spaces, convos, h.viewUser(r), agents, nameMap, searchQuery).Render(r.Context(), w)
 }
 
 func (h *Handlers) handlePeople(w http.ResponseWriter, r *http.Request) {
