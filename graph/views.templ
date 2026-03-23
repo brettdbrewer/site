@@ -447,6 +447,13 @@ templ dashboardTaskCard(t DashboardTask) {
 				if t.ChildCount > 0 {
 					<span class="text-[10px] text-warm-faint">{ fmt.Sprintf("%d/%d subtasks", t.ChildDone, t.ChildCount) }</span>
 				}
+				if t.DueDate != nil {
+					if t.DueDate.Before(time.Now()) && t.State != StateDone {
+						<span class="text-[10px] text-red-400 font-medium">overdue { t.DueDate.Format("Jan 2") }</span>
+					} else {
+						<span class="text-[10px] text-warm-faint">due { t.DueDate.Format("Jan 2") }</span>
+					}
+				}
 			</div>
 		</div>
 		<span class={ "text-[10px] font-medium px-1.5 py-0.5 rounded-full", dashboardStateClass(t.State) }>{ t.State }</span>
@@ -962,7 +969,11 @@ templ TaskCard(node Node, spaceSlug string) {
 					</span>
 				}
 				if node.DueDate != nil {
-					<span class="text-[10px] text-warm-faint">{ node.DueDate.Format("Jan 2") }</span>
+					if node.DueDate.Before(time.Now()) && node.State != StateDone {
+						<span class="text-[10px] text-red-400 font-medium">overdue { node.DueDate.Format("Jan 2") }</span>
+					} else {
+						<span class="text-[10px] text-warm-faint">{ node.DueDate.Format("Jan 2") }</span>
+					}
 				}
 			</div>
 			if node.BlockerCount > 0 {
@@ -2033,7 +2044,11 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 					if node.DueDate != nil {
 						<div class="space-y-1.5">
 							<label class="text-[10px] font-semibold text-warm-faint uppercase tracking-wider">Due</label>
-							<div class="text-sm text-warm-secondary">{ node.DueDate.Format("Jan 2, 2006") }</div>
+							if node.DueDate.Before(time.Now()) && node.State != StateDone {
+								<div class="text-sm text-red-400 font-medium">{ node.DueDate.Format("Jan 2, 2006") } (overdue)</div>
+							} else {
+								<div class="text-sm text-warm-secondary">{ node.DueDate.Format("Jan 2, 2006") }</div>
+							}
 						</div>
 					}
 				</div>

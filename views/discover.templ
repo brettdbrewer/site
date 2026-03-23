@@ -18,7 +18,7 @@ type DiscoverSpace struct {
 	HasAgent     bool
 }
 
-templ DiscoverPage(spaces []DiscoverSpace, query string) {
+templ DiscoverPage(spaces []DiscoverSpace, query string, kindFilter string) {
 	@Layout("Discover", "Browse public spaces on lovyou.ai — projects, communities, and teams built by humans and agents together.") {
 		<div class="space-y-8">
 			<div class="reveal" style="--d:0">
@@ -34,6 +34,12 @@ templ DiscoverPage(spaces []DiscoverSpace, query string) {
 						<a href="/discover" class="text-xs text-warm-faint hover:text-brand transition-colors flex items-center px-2">Clear</a>
 					}
 				</form>
+				<div class="flex gap-2 mt-3">
+					@discoverKindTab("", "All", kindFilter)
+					@discoverKindTab("project", "Projects", kindFilter)
+					@discoverKindTab("community", "Communities", kindFilter)
+					@discoverKindTab("team", "Teams", kindFilter)
+				</div>
 			</div>
 			if len(spaces) == 0 {
 				<div class="text-center py-16 space-y-4">
@@ -88,6 +94,17 @@ func pluralize(n int, singular, plural string) string {
 		return singular
 	}
 	return plural
+}
+
+templ discoverKindTab(value, label, active string) {
+	<a
+		href={ templ.SafeURL("/discover?kind=" + value) }
+		class={ "text-xs px-3 py-1.5 rounded-lg transition-colors font-medium",
+			templ.KV("bg-brand/15 text-brand", value == active),
+			templ.KV("bg-elevated text-warm-muted hover:text-warm", value != active) }
+	>
+		{ label }
+	</a>
 }
 
 func relativeTime(t time.Time) string {
