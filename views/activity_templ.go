@@ -58,7 +58,7 @@ func GlobalActivityPage(items []ActivityItem) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div class=\"reveal\" style=\"--d:0\"><h1 class=\"text-3xl font-light text-warm\">Activity</h1><p class=\"text-warm-muted mt-2\">Everything happening across public spaces. Full transparency — nothing hidden.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div class=\"reveal\" style=\"--d:0\"><h1 class=\"font-display text-3xl font-light text-warm\">Activity</h1><p class=\"text-warm-muted mt-2\">Everything happening across public spaces. Full transparency — nothing hidden.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

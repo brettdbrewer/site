@@ -180,9 +180,9 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 templ lensLink(spaceSlug, lens, label, activeLens string, icon templ.Component) {
 	<a
 		href={ templ.SafeURL("/app/" + spaceSlug + "/" + lens) }
-		class={ "flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-			templ.KV("bg-brand/10 text-brand font-medium", lens == activeLens),
-			templ.KV("hover:bg-elevated text-warm-muted", lens != activeLens) }
+		class={ "flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-md transition-all duration-200",
+			templ.KV("bg-brand/10 text-brand font-medium border-l-2 border-brand", lens == activeLens),
+			templ.KV("hover:bg-elevated text-warm-muted hover:text-warm border-l-2 border-transparent", lens != activeLens) }
 	>
 		@icon
 		{ label }
@@ -532,7 +532,7 @@ templ SpaceOnboarding(user ViewUser) {
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
 							</svg>
 						</div>
-						<h1 class="text-2xl font-light text-warm">Welcome</h1>
+						<h1 class="font-display text-2xl font-light text-warm">Welcome</h1>
 						<p class="text-warm-muted mt-2">Create your first space to get started. A space can be a project, community, or team.</p>
 					</div>
 					<form action="/app/new" method="POST" class="space-y-4 text-left">
@@ -583,7 +583,7 @@ templ SpaceOverview(space Space, spaces []Space, pinned []Node, recentOps []Op, 
 	@appLayout(space, spaces, "", user) {
 		<div class="p-6 md:p-8 space-y-6 max-w-3xl mx-auto">
 			<div>
-				<h1 class="text-2xl font-light text-warm">{ space.Name }</h1>
+				<h1 class="font-display text-2xl font-light text-warm">{ space.Name }</h1>
 				if space.Description != "" {
 					<p class="text-warm-muted mt-2">{ space.Description }</p>
 				}
@@ -698,7 +698,7 @@ templ NotificationsView(notifs []Notification, user ViewUser) {
 			@simpleHeader(user)
 			<main class="flex-1 max-w-3xl mx-auto px-6 py-8 w-full">
 				<div class="flex items-center justify-between mb-6">
-					<h1 class="text-2xl font-light text-warm">Notifications</h1>
+					<h1 class="font-display text-2xl font-light text-warm">Notifications</h1>
 					<a href="/app" class="text-xs text-warm-muted hover:text-brand transition-colors">Back to dashboard</a>
 				</div>
 				if len(notifs) == 0 {
@@ -927,7 +927,7 @@ templ TaskCard(node Node, spaceSlug string) {
 	<a
 		href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) }
 		id={ "node-" + node.ID }
-		class="block bg-surface rounded-lg border border-edge shadow-sm p-3 hover:border-brand/40 hover:shadow transition-all cursor-pointer"
+		class="block bg-surface rounded-lg border border-edge shadow-sm p-3 hover:border-brand/30 hover:shadow-md hover:shadow-brand/5 transition-all duration-200 cursor-pointer"
 	>
 		<div class="flex items-start gap-2">
 			if node.Pinned {
@@ -998,7 +998,7 @@ templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner
 	@appLayout(space, spaces, "feed", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
-				<h1 class="text-xl font-medium text-warm">Feed</h1>
+				<h1 class="font-display text-xl font-normal text-warm">Feed</h1>
 			</div>
 			<form action={ templ.SafeURL("/app/" + space.Slug + "/feed") } method="GET" class="flex gap-2">
 				<input type="text" name="q" value={ searchQuery } placeholder="Search posts..."
@@ -1096,7 +1096,7 @@ templ ThreadsView(space Space, spaces []Space, threads []Node, user ViewUser, is
 	@appLayout(space, spaces, "threads", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
-				<h1 class="text-xl font-medium text-warm">Threads</h1>
+				<h1 class="font-display text-xl font-normal text-warm">Threads</h1>
 			</div>
 			<form action={ templ.SafeURL("/app/" + space.Slug + "/threads") } method="GET" class="flex gap-2">
 				<input type="text" name="q" value={ searchQuery } placeholder="Search threads..."
@@ -1165,7 +1165,7 @@ templ ConversationsView(space Space, spaces []Space, convos []ConversationSummar
 	@appLayout(space, spaces, "conversations", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
-				<h1 class="text-xl font-medium text-warm">Conversations</h1>
+				<h1 class="font-display text-xl font-normal text-warm">Conversations</h1>
 			</div>
 			<form action={ templ.SafeURL("/app/" + space.Slug + "/conversations") } method="GET" class="flex gap-2">
 				<input type="text" name="q" value={ searchQuery } placeholder="Search conversations..."
@@ -1396,7 +1396,7 @@ templ chatMessage(msg Node, currentUserID string) {
 templ PeopleView(space Space, spaces []Space, members []Member, user ViewUser, searchQuery string) {
 	@appLayout(space, spaces, "people", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
-			<h1 class="text-xl font-medium text-warm">People</h1>
+			<h1 class="font-display text-xl font-normal text-warm">People</h1>
 			<form action={ templ.SafeURL("/app/" + space.Slug + "/people") } method="GET" class="flex gap-2">
 				<input type="text" name="q" value={ searchQuery } placeholder="Search people..."
 					class="flex-1 px-3 py-1.5 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand"/>
@@ -1444,7 +1444,7 @@ templ PeopleView(space Space, spaces []Space, members []Member, user ViewUser, s
 templ ActivityView(space Space, spaces []Space, ops []Op, user ViewUser, opFilter string) {
 	@appLayout(space, spaces, "activity", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
-			<h1 class="text-xl font-medium text-warm">Activity</h1>
+			<h1 class="font-display text-xl font-normal text-warm">Activity</h1>
 			<div class="flex flex-wrap gap-1">
 				@activityOpTab(space.Slug, "", "All", opFilter)
 				@activityOpTab(space.Slug, "intend", "Tasks", opFilter)
@@ -1515,7 +1515,7 @@ templ opItem(o Op, spaceSlug string) {
 templ SettingsView(space Space, spaces []Space, reports []Report, user ViewUser, errMsg string, inviteToken string, members []SpaceMember) {
 	@appLayout(space, spaces, "settings", user) {
 		<div class="max-w-xl mx-auto p-6 space-y-8">
-			<h1 class="text-xl font-medium text-warm">Settings</h1>
+			<h1 class="font-display text-xl font-normal text-warm">Settings</h1>
 			if errMsg != "" {
 				<div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
 					{ errMsg }
@@ -1701,7 +1701,7 @@ templ ChangelogView(space Space, spaces []Space, entries []ChangelogEntry, user 
 	@appLayout(space, spaces, "changelog", user) {
 		<div class="p-6 md:p-8 space-y-6">
 			<div>
-				<h1 class="text-2xl font-light text-warm">Changelog</h1>
+				<h1 class="font-display text-2xl font-light text-warm">Changelog</h1>
 				<p class="text-sm text-warm-muted mt-1">What was built — completed tasks with accountability</p>
 			</div>
 			<form action={ templ.SafeURL("/app/" + space.Slug + "/changelog") } method="GET" class="flex gap-2">
@@ -1754,7 +1754,7 @@ templ GovernanceView(space Space, spaces []Space, proposals []ProposalWithVotes,
 		<div class="p-6 md:p-8 space-y-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<h1 class="text-2xl font-light text-warm">Governance</h1>
+					<h1 class="font-display text-2xl font-light text-warm">Governance</h1>
 					<p class="text-sm text-warm-muted mt-1">Propose changes, vote on decisions — transparent and accountable</p>
 				</div>
 			</div>
@@ -2768,7 +2768,7 @@ templ KnowledgeView(space Space, spaces []Space, claims []Node, challengeCounts 
 		<div class="p-6 md:p-8 space-y-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<h1 class="text-2xl font-light text-warm">Knowledge</h1>
+					<h1 class="font-display text-2xl font-light text-warm">Knowledge</h1>
 					<p class="text-sm text-warm-muted mt-1">Claims with epistemic status — assert what you know, challenge what you doubt</p>
 				</div>
 			</div>

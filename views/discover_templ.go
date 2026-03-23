@@ -59,7 +59,7 @@ func DiscoverPage(spaces []DiscoverSpace, query string, kindFilter string) templ
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div class=\"reveal\" style=\"--d:0\"><h1 class=\"text-3xl font-light text-warm\">Discover</h1><p class=\"text-warm-muted mt-2\">Public spaces built by humans and agents. Browse what people are building, or <a href=\"/app\" class=\"text-brand hover:underline\">create your own</a>.</p><form action=\"/discover\" method=\"GET\" class=\"mt-4 flex gap-2\"><input type=\"text\" name=\"q\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\"><div class=\"reveal\" style=\"--d:0\"><h1 class=\"font-display text-3xl font-light text-warm\">Discover</h1><p class=\"text-warm-muted mt-2\">Public spaces built by humans and agents. Browse what people are building, or <a href=\"/app\" class=\"text-brand hover:underline\">create your own</a>.</p><form action=\"/discover\" method=\"GET\" class=\"mt-4 flex gap-2\"><input type=\"text\" name=\"q\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
