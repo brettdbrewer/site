@@ -779,6 +779,28 @@ func (s *Store) ListAgentNames(ctx context.Context) ([]string, error) {
 	return names, rows.Err()
 }
 
+// SearchUsers returns users whose names match a query (ILIKE), limited to 8.
+func (s *Store) SearchUsers(ctx context.Context, query string) ([]struct{ Name, Kind string }, error) {
+	if query == "" {
+		return nil, nil
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT name, kind FROM users WHERE name ILIKE '%' || $1 || '%' ORDER BY name LIMIT 8`, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []struct{ Name, Kind string }
+	for rows.Next() {
+		var u struct{ Name, Kind string }
+		if err := rows.Scan(&u.Name, &u.Kind); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
 // HasAgentParticipant checks if any of the given IDs belong to an agent user.
 // Tags now store user IDs, so we match on id.
 func (s *Store) HasAgentParticipant(ctx context.Context, ids []string) (bool, error) {

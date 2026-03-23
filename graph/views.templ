@@ -199,6 +199,47 @@ templ commandPalette() {
 	});
 	</script>
 	<style>@keyframes shrink{from{width:100%}to{width:0}}</style>
+	<!-- @mention autocomplete -->
+	<div id="mention-dropdown" class="hidden fixed z-50 bg-surface border border-edge rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto"></div>
+	<script>
+	(function(){
+		var dd=document.getElementById('mention-dropdown');
+		var activeEl=null, mentionStart=-1;
+		function hideMention(){dd.classList.add('hidden');activeEl=null;mentionStart=-1}
+		window.insertMention=function(name){
+			if(!activeEl)return;
+			var v=activeEl.value;
+			activeEl.value=v.substring(0,mentionStart)+'@'+name+' '+v.substring(activeEl.selectionStart);
+			activeEl.focus();
+			activeEl.selectionStart=activeEl.selectionEnd=mentionStart+name.length+2;
+			hideMention();
+		};
+		document.addEventListener('input',function(e){
+			var el=e.target;
+			if(el.tagName!=='TEXTAREA'&&el.tagName!=='INPUT')return;
+			var v=el.value, pos=el.selectionStart;
+			// Find @ before cursor
+			var i=pos-1;
+			while(i>=0&&v[i]!==' '&&v[i]!=='\n')i--;
+			if(i+1<pos&&v[i+1]==='@'){
+				var q=v.substring(i+2,pos);
+				if(q.length>0){
+					mentionStart=i+1;activeEl=el;
+					fetch('/api/members?q='+encodeURIComponent(q)).then(function(r){return r.text()}).then(function(html){
+						if(!html.trim()){hideMention();return}
+						dd.innerHTML=html;dd.classList.remove('hidden');
+						var rect=el.getBoundingClientRect();
+						dd.style.left=rect.left+'px';dd.style.top=(rect.top-dd.offsetHeight-4)+'px';dd.style.minWidth='200px';
+					});
+					return;
+				}
+			}
+			hideMention();
+		});
+		document.addEventListener('keydown',function(e){if(e.key==='Escape')hideMention()});
+		document.addEventListener('click',function(e){if(!dd.contains(e.target))hideMention()});
+	})();
+	</script>
 	<!-- Keyboard shortcuts -->
 	<dialog id="shortcuts-help" class="bg-transparent backdrop:bg-void/60 backdrop:backdrop-blur-sm p-0 m-0 fixed inset-0 w-full h-full z-50">
 		<div class="flex items-center justify-center min-h-full" onclick="document.getElementById('shortcuts-help').close()">

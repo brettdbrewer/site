@@ -314,6 +314,25 @@ func main() {
 		w.Write([]byte(buf.String()))
 	})
 
+	// @mention autocomplete — returns matching user names as HTML options.
+	mux.HandleFunc("GET /api/members", func(w http.ResponseWriter, r *http.Request) {
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if graphStore == nil || q == "" {
+			return
+		}
+		users, _ := graphStore.SearchUsers(r.Context(), q)
+		var buf strings.Builder
+		for _, u := range users {
+			badge := ""
+			if u.Kind == "agent" {
+				badge = `<span class="text-[9px] px-1 py-0.5 rounded bg-violet-500/10 text-violet-400 ml-1">agent</span>`
+			}
+			buf.WriteString(fmt.Sprintf(`<div class="px-3 py-1.5 hover:bg-elevated cursor-pointer text-sm text-warm transition-colors" onmousedown="insertMention('%s')">@%s%s</div>`, u.Name, u.Name, badge))
+		}
+		w.Write([]byte(buf.String()))
+	})
+
 	// Discover page — list public spaces (no auth required).
 	mux.HandleFunc("GET /discover", func(w http.ResponseWriter, r *http.Request) {
 		if graphStore == nil {
