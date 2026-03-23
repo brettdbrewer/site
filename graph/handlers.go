@@ -945,6 +945,22 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 	dependencies, _ := h.store.ListDependencies(r.Context(), nodeID)
 	dependents, _ := h.store.ListDependents(r.Context(), nodeID)
 
+	// Fetch space tasks for dependency dropdown (tasks only, exclude self + existing deps).
+	var spaceTasks []Node
+	if node.Kind == KindTask {
+		all, _ := h.store.ListNodes(r.Context(), ListNodesParams{SpaceID: space.ID, Kind: KindTask})
+		depSet := make(map[string]bool, len(dependencies))
+		depSet[nodeID] = true // exclude self
+		for _, d := range dependencies {
+			depSet[d.ID] = true
+		}
+		for _, t := range all {
+			if !depSet[t.ID] {
+				spaceTasks = append(spaceTasks, t)
+			}
+		}
+	}
+
 	if wantsJSON(r) {
 		writeJSON(w, http.StatusOK, map[string]any{"space": space, "node": node, "children": children, "ops": ops, "dependencies": dependencies, "dependents": dependents})
 		return
@@ -966,7 +982,7 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 		parents[i], parents[j] = parents[j], parents[i]
 	}
 
-	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner, parents, dependencies, dependents).Render(r.Context(), w)
+	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner, parents, dependencies, dependents, spaceTasks).Render(r.Context(), w)
 }
 
 // ────────────────────────────────────────────────────────────────────

@@ -1732,7 +1732,7 @@ templ proposalStateBadge(state string) {
 
 // ── Node detail ─────────────────────────────────────────────────
 
-templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user ViewUser, isOwner bool, parents []Node, dependencies []Node, dependents []Node) {
+templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user ViewUser, isOwner bool, parents []Node, dependencies []Node, dependents []Node, spaceTasks []Node) {
 	@appLayout(space, []Space{space}, "", user) {
 		<div class="max-w-3xl mx-auto p-6 space-y-8">
 			<!-- Breadcrumb -->
@@ -1866,7 +1866,7 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 			}
 
 			<!-- Dependencies -->
-			if len(dependencies) > 0 || len(dependents) > 0 {
+			if len(dependencies) > 0 || len(dependents) > 0 || len(spaceTasks) > 0 {
 				<div class="space-y-3">
 					if len(dependencies) > 0 {
 						<div>
@@ -1887,6 +1887,19 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 								}
 							</div>
 						</div>
+					}
+					if len(spaceTasks) > 0 && user.Name != "" && user.Name != "Anonymous" {
+						<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") } class="flex items-center gap-2">
+							<input type="hidden" name="op" value="depend"/>
+							<input type="hidden" name="node_id" value={ node.ID }/>
+							<select name="depends_on" required class="flex-1 px-3 py-1.5 bg-elevated border border-edge rounded-lg text-sm text-warm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent">
+								<option value="" disabled selected>Add dependency...</option>
+								for _, t := range spaceTasks {
+									<option value={ t.ID }>{ truncate(t.Title, 60) } ({ stateLabel(t.State) })</option>
+								}
+							</select>
+							<button type="submit" class="px-3 py-1.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium flex-shrink-0">Add</button>
+						</form>
 					}
 				</div>
 			}
