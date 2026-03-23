@@ -72,14 +72,16 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 						<a href="/reference" class="hover:text-brand transition-colors">Reference</a>
 						if user.Name != "" && user.Name != "Anonymous" {
 							<div class="flex items-center gap-2 ml-2 pl-4 border-l border-edge">
-								if user.Picture != "" {
-									<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
-								} else {
-									<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-xs font-bold flex items-center justify-center">
-										{ initial(user.Name) }
-									</span>
-								}
-								<span class="text-warm-muted text-xs">{ user.Name }</span>
+								<a href={ templ.SafeURL("/user/" + user.Name) } class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+									if user.Picture != "" {
+										<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
+									} else {
+										<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-xs font-bold flex items-center justify-center">
+											{ initial(user.Name) }
+										</span>
+									}
+									<span class="text-warm-muted text-xs">{ user.Name }</span>
+								</a>
 								<form method="POST" action="/auth/logout">
 									<button type="submit" class="text-xs text-warm-faint hover:text-red-400 transition-colors">Logout</button>
 								</form>
@@ -2336,9 +2338,15 @@ templ simpleHeader(user ViewUser) {
 				<a href="/app" class="hover:text-brand transition-colors">App</a>
 				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
 				if user.Name != "" && user.Name != "Anonymous" {
-					if user.Picture != "" {
-						<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
-					}
+					<a href={ templ.SafeURL("/user/" + user.Name) }>
+						if user.Picture != "" {
+							<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
+						} else {
+							<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-xs font-bold flex items-center justify-center">
+								{ initial(user.Name) }
+							</span>
+						}
+					</a>
 				}
 			</div>
 			<!-- Desktop: full links -->
@@ -2349,12 +2357,12 @@ templ simpleHeader(user ViewUser) {
 				<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
 				<a href="/reference" class="hover:text-brand transition-colors">Reference</a>
 				if user.Name != "" && user.Name != "Anonymous" {
-					<div class="flex items-center gap-2 ml-2 pl-4 border-l border-edge">
+					<a href={ templ.SafeURL("/user/" + user.Name) } class="flex items-center gap-2 ml-2 pl-4 border-l border-edge hover:opacity-80 transition-opacity">
 						if user.Picture != "" {
 							<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
 						}
 						<span class="text-warm-muted text-xs">{ user.Name }</span>
-					</div>
+					</a>
 				}
 			</div>
 		</nav>
