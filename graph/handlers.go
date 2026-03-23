@@ -1266,10 +1266,15 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "complete", nil)
 
-		// Notify task author when an agent completes their task.
-		if actorKind == "agent" && op != nil {
-			if node, _ := h.store.GetNode(ctx, nodeID); node != nil && node.AuthorID != actorID {
-				h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "completed your task: "+node.Title)
+		// Notify task author/assignee when someone completes their task.
+		if op != nil {
+			if node, _ := h.store.GetNode(ctx, nodeID); node != nil {
+				if node.AuthorID != actorID {
+					h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "completed your task: "+node.Title)
+				}
+				if node.AssigneeID != "" && node.AssigneeID != actorID && node.AssigneeID != node.AuthorID {
+					h.notify(ctx, node.AssigneeID, actor, op.ID, space.ID, "completed task: "+node.Title)
+				}
 			}
 		}
 
@@ -1855,7 +1860,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		payload, _ := json.Marshal(map[string]string{"outcome": outcome})
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "close_proposal", payload)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "close_proposal", payload)
+
+		// Notify proposal author.
+		if node.AuthorID != actorID && op != nil {
+			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, outcome+" your proposal: "+node.Title)
+		}
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "close_proposal", "outcome": outcome})
@@ -1909,7 +1919,13 @@ func (h *Handlers) handleNodeState(w http.ResponseWriter, r *http.Request) {
 	} else if newState == StateReview {
 		opName = "review"
 	}
-	h.store.RecordOp(r.Context(), space.ID, nodeID, h.userName(r), h.userID(r), opName, nil)
+	op, _ := h.store.RecordOp(r.Context(), space.ID, nodeID, h.userName(r), h.userID(r), opName, nil)
+
+	// Notify assignee on state change.
+	uid := h.userID(r)
+	if op != nil && node != nil && node.AssigneeID != "" && node.AssigneeID != uid {
+		h.notify(r.Context(), node.AssigneeID, h.userName(r), op.ID, space.ID, opName+" task: "+node.Title)
+	}
 
 	node, _ = h.store.GetNode(r.Context(), nodeID)
 	if wantsJSON(r) {
