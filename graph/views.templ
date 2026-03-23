@@ -1871,6 +1871,18 @@ templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user Vie
 				</div>
 			}
 
+			<!-- Actions -->
+			if user.Name != "" && user.Name != "Anonymous" && node.Kind != KindConversation && node.Kind != KindComment {
+				<div class="flex gap-2 border-t border-edge pt-4">
+					<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") }>
+						<input type="hidden" name="op" value="converse"/>
+						<input type="hidden" name="title" value={ "Discuss: " + node.Title }/>
+						<button type="submit" class="text-xs px-3 py-1.5 bg-sky-500/10 text-sky-400 rounded-lg hover:bg-sky-500/20 transition-colors">
+							Discuss this
+						</button>
+					</form>
+				</div>
+			}
 			<!-- Timestamps + delete -->
 			<div class="flex items-center justify-between border-t border-edge pt-4">
 				<div class="flex gap-4 text-xs text-warm-faint">
