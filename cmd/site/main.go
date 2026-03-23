@@ -352,6 +352,12 @@ func main() {
 				SpaceName: c.SpaceName, DoneAt: c.DoneAt.Format("Jan 2"),
 			})
 		}
+		// Space memberships.
+		memberships, _ := graphStore.ListUserMemberships(r.Context(), u.ID)
+		var spaces []views.SpaceMembership
+		for _, m := range memberships {
+			spaces = append(spaces, views.SpaceMembership{Slug: m.SpaceSlug, Name: m.SpaceName, Kind: m.SpaceKind})
+		}
 		views.ProfilePage(views.UserProfile{
 			Name: u.Name, Kind: u.Kind,
 			TasksDone: u.TasksDone, OpCount: u.OpCount,
@@ -359,6 +365,7 @@ func main() {
 			HasEndorsed: hasEndorsed, ViewerLoggedIn: viewerLoggedIn,
 			CompletedWork: completedWork,
 			RecentOps: recentOps,
+			Spaces: spaces,
 		}).Render(r.Context(), w)
 	}))
 

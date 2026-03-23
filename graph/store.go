@@ -1067,6 +1067,35 @@ func (s *Store) GetUserProfile(ctx context.Context, name string) (*struct {
 	return &u, nil
 }
 
+// UserMembership is a space a user belongs to.
+type UserMembership struct {
+	SpaceSlug string
+	SpaceName string
+	SpaceKind string
+}
+
+// ListUserMemberships returns public spaces a user is a member of or owns.
+func (s *Store) ListUserMemberships(ctx context.Context, userID string) ([]UserMembership, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT s.slug, s.name, s.kind FROM spaces s
+		WHERE s.visibility = 'public'
+		  AND (s.owner_id = $1 OR EXISTS(SELECT 1 FROM space_members sm WHERE sm.space_id = s.id AND sm.user_id = $1))
+		ORDER BY s.name`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var memberships []UserMembership
+	for rows.Next() {
+		var m UserMembership
+		if err := rows.Scan(&m.SpaceSlug, &m.SpaceName, &m.SpaceKind); err != nil {
+			return nil, err
+		}
+		memberships = append(memberships, m)
+	}
+	return memberships, rows.Err()
+}
+
 // ListPublicActivity returns recent ops from public spaces.
 func (s *Store) ListPublicActivity(ctx context.Context, limit int) ([]Op, error) {
 	if limit <= 0 {

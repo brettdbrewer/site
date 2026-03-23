@@ -11,6 +11,13 @@ type CompletedWork struct {
 	DoneAt    string // formatted
 }
 
+// SpaceMembership is a space the user belongs to, for profile display.
+type SpaceMembership struct {
+	Slug string
+	Name string
+	Kind string
+}
+
 // UserProfile holds data for the public profile page.
 type UserProfile struct {
 	Name            string
@@ -23,6 +30,7 @@ type UserProfile struct {
 	ViewerLoggedIn  bool     // whether there's a logged-in viewer
 	CompletedWork   []CompletedWork
 	RecentOps       []ActivityItem
+	Spaces          []SpaceMembership
 }
 
 templ ProfilePage(profile UserProfile) {
@@ -83,6 +91,19 @@ templ ProfilePage(profile UserProfile) {
 					</div>
 				}
 			</div>
+			if len(profile.Spaces) > 0 {
+				<div class="reveal" style="--d:2">
+					<h2 class="text-lg font-medium text-warm mb-3">Spaces</h2>
+					<div class="flex flex-wrap gap-2">
+						for _, sp := range profile.Spaces {
+							<a href={ templ.SafeURL("/app/" + sp.Slug) } class="flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-lg border border-edge hover:border-brand/40 transition-all text-sm">
+								<span class="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0"></span>
+								<span class="text-warm">{ sp.Name }</span>
+							</a>
+						}
+					</div>
+				</div>
+			}
 			if len(profile.CompletedWork) > 0 {
 				<div class="reveal-scroll">
 					<h2 class="text-lg font-medium text-warm mb-4">Completed work</h2>
