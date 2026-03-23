@@ -177,6 +177,25 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 }
 
 templ commandPalette() {
+	<!-- Toast container -->
+	<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+	<script>
+	function showToast(msg){
+		var c=document.getElementById('toast-container');if(!c)return;
+		var t=document.createElement('div');
+		t.className='pointer-events-auto bg-surface border border-edge rounded-lg shadow-lg px-4 py-2.5 text-sm text-warm flex items-center gap-3 animate-[fadeUp_0.3s_ease]';
+		t.innerHTML=msg+'<div class="w-full absolute bottom-0 left-0 h-0.5 bg-brand/30 rounded-b-lg" style="animation:shrink 4s linear forwards"></div>';
+		t.style.position='relative';t.style.overflow='hidden';
+		c.appendChild(t);
+		setTimeout(function(){t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(function(){t.remove()},300)},4000);
+	}
+	document.body.addEventListener('htmx:afterRequest',function(e){
+		var xhr=e.detail.xhr;if(!xhr)return;
+		var trigger=xhr.getResponseHeader('HX-Trigger');
+		if(trigger){try{var j=JSON.parse(trigger);if(j.toast)showToast(j.toast)}catch(e){}}
+	});
+	</script>
+	<style>@keyframes shrink{from{width:100%}to{width:0}}</style>
 	<dialog id="cmd-palette" class="bg-transparent backdrop:bg-void/60 backdrop:backdrop-blur-sm p-0 m-0 fixed inset-0 w-full h-full z-50">
 		<div class="flex items-start justify-center pt-[20vh] min-h-full" onclick="document.getElementById('cmd-palette').close()">
 			<div class="w-full max-w-lg bg-surface border border-edge rounded-xl shadow-2xl shadow-brand/10 overflow-hidden" onclick="event.stopPropagation()">
@@ -1424,15 +1443,16 @@ templ ConversationDetailView(space Space, convo Node, messages []Node, user View
 					>
 						<input type="hidden" name="op" value="respond"/>
 						<input type="hidden" name="parent_id" value={ convo.ID }/>
-						<input
-							type="text"
+						<textarea
 							name="body"
-							placeholder="Write a message..."
+							placeholder="Write a message... (Shift+Enter for new line)"
 							required
 							autocomplete="off"
-							class="flex-1 px-4 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm text-warm placeholder-warm-faint"
+							rows="1"
+							class="flex-1 px-4 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm text-warm placeholder-warm-faint resize-none overflow-hidden"
 							onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.requestSubmit();}"
-						/>
+							oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,144)+'px'"
+						></textarea>
 						<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Send</button>
 					</form>
 				</div>
