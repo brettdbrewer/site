@@ -62,20 +62,18 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 		<body class="bg-void text-warm-secondary h-screen flex flex-col overflow-hidden">
 			<header class="border-b border-edge bg-surface flex-shrink-0">
 				<nav class="px-4 md:px-6 py-3 flex items-center justify-between">
-					<div class="flex items-center gap-2 md:gap-4 min-w-0">
+					<div class="flex items-center gap-2 md:gap-3 min-w-0">
 						<a href="/" class="font-display text-xl font-normal text-brand brand-breathe flex-shrink-0 italic">lovyou.ai</a>
-						<span class="text-warm-faint hidden md:inline">/</span>
-						<a href="/app" class="text-sm font-medium hover:text-brand transition-colors text-warm-muted hidden md:inline">App</a>
-						<span class="text-warm-faint">/</span>
+						<span class="text-warm-faint/50">/</span>
+						<a href="/app" class="text-xs font-medium hover:text-brand transition-colors text-warm-muted hidden md:inline">My Work</a>
+						<span class="text-warm-faint/50 hidden md:inline">/</span>
 						<span class="text-sm text-warm-secondary truncate">{ space.Name }</span>
 					</div>
-					<div class="hidden md:flex items-center gap-6 text-sm text-warm-muted">
-						<a href="/" class="hover:text-brand transition-colors">Home</a>
-						<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
-						<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
-						<a href="/reference" class="hover:text-brand transition-colors">Reference</a>
+					<div class="flex items-center gap-5 text-sm text-warm-muted">
+						<a href="/discover" class="hover:text-brand transition-colors hidden md:inline">Discover</a>
+						<a href="/blog" class="hover:text-brand transition-colors hidden md:inline">Blog</a>
 						if user.Name != "" && user.Name != "Anonymous" {
-							<div class="flex items-center gap-2 ml-2 pl-4 border-l border-edge">
+							<div class="flex items-center gap-2 md:ml-1 md:pl-3 md:border-l md:border-edge">
 								<a href={ templ.SafeURL("/user/" + user.Name) } class="flex items-center gap-2 hover:opacity-80 transition-opacity">
 									if user.Picture != "" {
 										<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
@@ -84,10 +82,10 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 											{ initial(user.Name) }
 										</span>
 									}
-									<span class="text-warm-muted text-xs">{ user.Name }</span>
+									<span class="text-warm-muted text-xs hidden md:inline">{ user.Name }</span>
 								</a>
 								<form method="POST" action="/auth/logout">
-									<button type="submit" class="text-xs text-warm-faint hover:text-red-400 transition-colors">Logout</button>
+									<button type="submit" class="text-xs text-warm-faint hover:text-red-400 transition-colors hidden md:inline">Logout</button>
 								</form>
 							</div>
 						}
@@ -2490,38 +2488,29 @@ templ APIKeysView(keys []ViewAPIKey, user ViewUser) {
 
 templ simpleHeader(user ViewUser) {
 	<header class="border-b border-edge bg-surface">
-		<nav class="max-w-4xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
+		<nav class="max-w-4xl mx-auto px-4 md:px-6 py-3.5 flex items-center justify-between">
 			<a href="/" class="font-display text-xl font-normal text-brand brand-breathe italic">lovyou.ai</a>
-			<!-- Mobile: compact links -->
-			<div class="flex md:hidden items-center gap-4 text-sm text-warm-muted">
-				<a href="/app" class="hover:text-brand transition-colors">App</a>
+			<div class="flex items-center gap-5 text-sm text-warm-muted">
 				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
+				<a href="/blog" class="hover:text-brand transition-colors hidden md:inline">Blog</a>
 				if user.Name != "" && user.Name != "Anonymous" {
-					<a href={ templ.SafeURL("/user/" + user.Name) }>
-						if user.Picture != "" {
-							<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
-						} else {
-							<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-xs font-bold flex items-center justify-center">
-								{ initial(user.Name) }
-							</span>
-						}
-					</a>
-				}
-			</div>
-			<!-- Desktop: full links -->
-			<div class="hidden md:flex items-center gap-6 text-sm text-warm-muted">
-				<a href="/" class="hover:text-brand transition-colors">Home</a>
-				<a href="/app" class="hover:text-brand transition-colors">App</a>
-				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
-				<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
-				<a href="/reference" class="hover:text-brand transition-colors">Reference</a>
-				if user.Name != "" && user.Name != "Anonymous" {
-					<a href={ templ.SafeURL("/user/" + user.Name) } class="flex items-center gap-2 ml-2 pl-4 border-l border-edge hover:opacity-80 transition-opacity">
-						if user.Picture != "" {
-							<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
-						}
-						<span class="text-warm-muted text-xs">{ user.Name }</span>
-					</a>
+					<div class="flex items-center gap-2 md:ml-1 md:pl-3 md:border-l md:border-edge">
+						<a href={ templ.SafeURL("/user/" + user.Name) } class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+							if user.Picture != "" {
+								<img src={ user.Picture } class="w-6 h-6 rounded-full" alt={ user.Name } referrerpolicy="no-referrer"/>
+							} else {
+								<span class="w-6 h-6 rounded-full bg-brand/10 text-brand text-xs font-bold flex items-center justify-center">
+									{ initial(user.Name) }
+								</span>
+							}
+							<span class="text-warm-muted text-xs hidden md:inline">{ user.Name }</span>
+						</a>
+						<form method="POST" action="/auth/logout">
+							<button type="submit" class="text-xs text-warm-faint hover:text-red-400 transition-colors hidden md:inline">Logout</button>
+						</form>
+					</div>
+				} else {
+					<a href="/app" class="px-3 py-1 bg-brand/10 text-brand rounded-md hover:bg-brand/20 transition-colors text-xs font-medium">My Work</a>
 				}
 			</div>
 		</nav>
@@ -2530,10 +2519,17 @@ templ simpleHeader(user ViewUser) {
 
 templ simpleFooter() {
 	<footer class="border-t border-edge bg-surface">
-		<div class="max-w-4xl mx-auto px-6 py-6 text-sm text-warm-muted flex items-center justify-between">
-			<span>lovyou.ai — humans and agents, building together</span>
-			<div class="flex gap-4 items-center">
-				<a href="mailto:matt@lovyou.ai" class="hover:text-brand transition-colors">matt@lovyou.ai</a>
+		<div class="max-w-4xl mx-auto px-4 md:px-6 py-8 flex flex-col md:flex-row items-start justify-between gap-6">
+			<div>
+				<span class="font-display text-sm text-warm-faint italic">lovyou.ai</span>
+				<p class="text-[10px] text-warm-faint mt-1">Humans and agents, building together.</p>
+			</div>
+			<div class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-warm-faint">
+				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
+				<a href="/market" class="hover:text-brand transition-colors">Market</a>
+				<a href="/knowledge" class="hover:text-brand transition-colors">Knowledge</a>
+				<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
+				<a href="/reference" class="hover:text-brand transition-colors">Reference</a>
 				<a href="https://github.com/lovyou-ai" class="hover:text-brand transition-colors" target="_blank" rel="noopener">GitHub</a>
 			</div>
 		</div>
