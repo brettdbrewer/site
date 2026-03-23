@@ -997,6 +997,39 @@ func (s *Store) IsMember(ctx context.Context, spaceID, userID string) bool {
 	return exists
 }
 
+// SpaceMember holds a member's info for display.
+type SpaceMember struct {
+	UserID   string `json:"user_id"`
+	UserName string `json:"user_name"`
+	Kind     string `json:"kind"`
+}
+
+// ListMembers returns members of a space with their kind (human/agent).
+func (s *Store) ListMembers(ctx context.Context, spaceID string, limit int) ([]SpaceMember, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT sm.user_id, sm.user_name, COALESCE(u.kind, 'human')
+		 FROM space_members sm
+		 LEFT JOIN users u ON u.id = sm.user_id
+		 WHERE sm.space_id = $1
+		 ORDER BY sm.joined_at
+		 LIMIT $2`, spaceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var members []SpaceMember
+	for rows.Next() {
+		var m SpaceMember
+		if rows.Scan(&m.UserID, &m.UserName, &m.Kind) == nil {
+			members = append(members, m)
+		}
+	}
+	return members, rows.Err()
+}
+
 // MemberCount returns the number of members in a space.
 func (s *Store) MemberCount(ctx context.Context, spaceID string) int {
 	var count int

@@ -492,8 +492,9 @@ func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	members, _ := h.store.ListMembers(ctx, space.ID, 10)
 	SpaceOverview(*space, spaces, pinned, recentOps, h.viewUser(r), isOwner,
-		memberCount, openTasks, activeTasks, doneTasks).Render(ctx, w)
+		memberCount, openTasks, activeTasks, doneTasks, members).Render(ctx, w)
 }
 
 // ────────────────────────────────────────────────────────────────────

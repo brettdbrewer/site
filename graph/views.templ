@@ -524,7 +524,7 @@ templ SpaceOnboarding(user ViewUser) {
 
 // ── Space overview ───────────────────────────────────────────────
 
-templ SpaceOverview(space Space, spaces []Space, pinned []Node, recentOps []Op, user ViewUser, isOwner bool, memberCount, openTasks, activeTasks, doneTasks int) {
+templ SpaceOverview(space Space, spaces []Space, pinned []Node, recentOps []Op, user ViewUser, isOwner bool, memberCount, openTasks, activeTasks, doneTasks int, members []SpaceMember) {
 	@appLayout(space, spaces, "", user) {
 		<div class="p-6 md:p-8 space-y-6 max-w-3xl mx-auto">
 			<div>
@@ -545,6 +545,27 @@ templ SpaceOverview(space Space, spaces []Space, pinned []Node, recentOps []Op, 
 				@overviewLensLink(space.Slug, "conversations", "Chat", "Conversations")
 				@overviewLensLink(space.Slug, "governance", "Governance", "Proposals")
 			</div>
+			<!-- Members -->
+			if len(members) > 0 {
+				<section>
+					<h2 class="text-sm font-medium text-warm-muted uppercase tracking-wide mb-3">Members</h2>
+					<div class="flex flex-wrap gap-2">
+						for _, m := range members {
+							<a href={ templ.SafeURL("/user/" + m.UserName) } class="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface rounded-lg border border-edge hover:border-brand/40 transition-all text-xs">
+								if m.Kind == "agent" {
+									<span class="w-5 h-5 rounded-full bg-violet-500/10 text-violet-400 text-[9px] font-bold flex items-center justify-center">{ initial(m.UserName) }</span>
+								} else {
+									<span class="w-5 h-5 rounded-full bg-brand/10 text-brand text-[9px] font-bold flex items-center justify-center">{ initial(m.UserName) }</span>
+								}
+								<span class="text-warm">{ m.UserName }</span>
+								if m.Kind == "agent" {
+									<span class="text-[8px] px-1 py-0.5 rounded bg-violet-500/10 text-violet-400">agent</span>
+								}
+							</a>
+						}
+					</div>
+				</section>
+			}
 			<!-- Pinned content -->
 			if len(pinned) > 0 {
 				<section>
