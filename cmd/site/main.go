@@ -398,6 +398,7 @@ func main() {
 			graphStore.Unendorse(r.Context(), viewer.ID, targetID)
 		} else {
 			graphStore.Endorse(r.Context(), viewer.ID, targetID)
+			graphStore.CreateNotification(r.Context(), targetID, "", "", viewer.Name+": endorsed you")
 		}
 		http.Redirect(w, r, "/user/"+name, http.StatusSeeOther)
 	}))
