@@ -891,7 +891,19 @@ templ TaskCard(node Node, spaceSlug string) {
 		}
 		<div class="flex items-center justify-between mt-2 ml-4">
 			<div class="flex items-center gap-2">
+				if node.AuthorKind == "agent" {
+					<span class="w-5 h-5 rounded-full bg-violet-500/10 text-violet-400 text-[10px] font-bold flex items-center justify-center" title={ node.Author }>
+						{ initial(node.Author) }
+					</span>
+				} else if node.Assignee == "" || node.Author != node.Assignee {
+					<span class="w-5 h-5 rounded-full bg-warm-faint/20 text-warm-faint text-[10px] font-bold flex items-center justify-center" title={ node.Author }>
+						{ initial(node.Author) }
+					</span>
+				}
 				if node.Assignee != "" {
+					if node.Author != node.Assignee {
+						<span class="text-[10px] text-warm-faint">→</span>
+					}
 					<span class="w-5 h-5 rounded-full bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center" title={ node.Assignee }>
 						{ initial(node.Assignee) }
 					</span>
