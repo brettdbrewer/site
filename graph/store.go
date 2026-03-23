@@ -277,6 +277,17 @@ CREATE INDEX IF NOT EXISTS idx_endorsements_to ON endorsements(to_id);
 UPDATE nodes SET assignee_id = u.id
 FROM users u WHERE nodes.assignee = u.name AND nodes.assignee_id = '' AND nodes.assignee != '';
 
+CREATE TABLE IF NOT EXISTS notifications (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    op_id      TEXT NOT NULL,
+    space_id   TEXT NOT NULL,
+    message    TEXT NOT NULL DEFAULT '',
+    read       BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, created_at DESC);
+
 -- users table is created by auth.Auth.migrate(). Graph queries JOIN on it.
 -- Creating here too (IF NOT EXISTS) ensures tests work without auth setup.
 CREATE TABLE IF NOT EXISTS users (
@@ -1094,6 +1105,77 @@ func (s *Store) ListAvailableTasks(ctx context.Context, query string, limit int)
 		tasks = append(tasks, n)
 	}
 	return tasks, rows.Err()
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Notifications
+// ────────────────────────────────────────────────────────────────────
+
+// Notification is a user-facing notification.
+type Notification struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	OpID      string    `json:"op_id"`
+	SpaceID   string    `json:"space_id"`
+	Message   string    `json:"message"`
+	Read      bool      `json:"read"`
+	CreatedAt time.Time `json:"created_at"`
+	// Resolved at query time:
+	SpaceSlug string `json:"space_slug"`
+	SpaceName string `json:"space_name"`
+}
+
+// CreateNotification records a notification for a user.
+func (s *Store) CreateNotification(ctx context.Context, userID, opID, spaceID, message string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO notifications (id, user_id, op_id, space_id, message) VALUES ($1, $2, $3, $4, $5)`,
+		newID(), userID, opID, spaceID, message)
+	return err
+}
+
+// ListNotifications returns recent notifications for a user.
+func (s *Store) ListNotifications(ctx context.Context, userID string, limit int) ([]Notification, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT n.id, n.user_id, n.op_id, n.space_id, n.message, n.read, n.created_at,
+		       COALESCE(s.slug, ''), COALESCE(s.name, '')
+		FROM notifications n
+		LEFT JOIN spaces s ON s.id = n.space_id
+		WHERE n.user_id = $1
+		ORDER BY n.created_at DESC
+		LIMIT $2`, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var notifs []Notification
+	for rows.Next() {
+		var n Notification
+		if err := rows.Scan(&n.ID, &n.UserID, &n.OpID, &n.SpaceID, &n.Message, &n.Read, &n.CreatedAt,
+			&n.SpaceSlug, &n.SpaceName); err != nil {
+			return nil, fmt.Errorf("scan notification: %w", err)
+		}
+		notifs = append(notifs, n)
+	}
+	return notifs, rows.Err()
+}
+
+// UnreadCount returns the number of unread notifications for a user.
+func (s *Store) UnreadCount(ctx context.Context, userID string) int {
+	var count int
+	s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = false`, userID).Scan(&count)
+	return count
+}
+
+// MarkNotificationsRead marks all notifications for a user as read.
+func (s *Store) MarkNotificationsRead(ctx context.Context, userID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE notifications SET read = true WHERE user_id = $1 AND read = false`, userID)
+	return err
 }
 
 // ────────────────────────────────────────────────────────────────────

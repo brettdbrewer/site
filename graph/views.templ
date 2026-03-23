@@ -247,7 +247,7 @@ templ governanceIcon() {
 
 // ── Space index ─────────────────────────────────────────────────
 
-templ Dashboard(spaces []Space, tasks []DashboardTask, convos []DashboardConversation, agentOps []DashboardOp, user ViewUser) {
+templ Dashboard(spaces []Space, tasks []DashboardTask, convos []DashboardConversation, agentOps []DashboardOp, user ViewUser, defaultSpaceSlug string, agents []string, unreadCount int) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -263,11 +263,37 @@ templ Dashboard(spaces []Space, tasks []DashboardTask, convos []DashboardConvers
 				<div class="flex items-center justify-between mb-8">
 					<h1 class="text-2xl font-light text-warm">My Work</h1>
 					<div class="flex items-center gap-4">
+						<a href="/app/notifications" class="text-xs text-warm-muted hover:text-brand transition-colors relative">
+							Notifications
+							if unreadCount > 0 {
+								<span class="absolute -top-1.5 -right-3 bg-brand text-void text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{ fmt.Sprintf("%d", unreadCount) }</span>
+							}
+						</a>
 						<a href="/discover" class="text-xs text-warm-muted hover:text-brand transition-colors">Discover</a>
 						<a href="/market" class="text-xs text-warm-muted hover:text-brand transition-colors">Market</a>
 						<a href="/app/keys" class="text-xs text-warm-muted hover:text-brand transition-colors">API Keys</a>
 					</div>
 				</div>
+				<!-- Quick chat with Mind -->
+				if defaultSpaceSlug != "" && len(agents) > 0 {
+					<form method="POST" action={ templ.SafeURL("/app/" + defaultSpaceSlug + "/op") } class="bg-surface border border-brand/20 rounded-lg p-4 flex gap-3 items-end">
+						<input type="hidden" name="op" value="converse"/>
+						<input type="hidden" name="participants" value={ agents[0] }/>
+						<div class="flex-1">
+							<label class="text-xs text-warm-muted mb-1 block">Chat with { agents[0] }</label>
+							<input
+								type="text"
+								name="title"
+								placeholder="Ask something, assign a task, or just say hi..."
+								required
+								class="w-full px-3 py-2 bg-elevated border border-edge rounded-lg text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+							/>
+						</div>
+						<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium flex-shrink-0">
+							Start chat
+						</button>
+					</form>
+				}
 				<!-- Dashboard grid: tasks + conversations on left, agent activity + spaces on right -->
 				<div class="grid gap-6 lg:grid-cols-3">
 					<div class="lg:col-span-2 space-y-6">
@@ -490,6 +516,56 @@ templ SpaceOnboarding(user ViewUser) {
 						</p>
 					</div>
 				</div>
+			</main>
+			@simpleFooter()
+		</body>
+	</html>
+}
+
+// ── Notifications ────────────────────────────────────────────────
+
+templ NotificationsView(notifs []Notification, user ViewUser) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Notifications — lovyou.ai</title>
+			<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+			@themeBlock()
+		</head>
+		<body class="bg-void text-warm-secondary min-h-screen flex flex-col">
+			@simpleHeader(user)
+			<main class="flex-1 max-w-3xl mx-auto px-6 py-8 w-full">
+				<div class="flex items-center justify-between mb-6">
+					<h1 class="text-2xl font-light text-warm">Notifications</h1>
+					<a href="/app" class="text-xs text-warm-muted hover:text-brand transition-colors">Back to dashboard</a>
+				</div>
+				if len(notifs) == 0 {
+					<div class="text-center py-16">
+						<p class="text-warm-muted">No notifications yet.</p>
+						<p class="text-warm-faint text-sm mt-2">You'll see updates here when someone assigns you a task or messages you.</p>
+					</div>
+				} else {
+					<div class="space-y-1">
+						for _, n := range notifs {
+							<div class={ "flex items-center gap-3 py-3 px-4 rounded-lg text-sm",
+								templ.KV("bg-surface border border-brand/20", !n.Read),
+								templ.KV("text-warm-muted", n.Read) }>
+								if !n.Read {
+									<span class="w-2 h-2 rounded-full bg-brand flex-shrink-0"></span>
+								} else {
+									<span class="w-2 h-2 flex-shrink-0"></span>
+								}
+								<span class="flex-1">{ n.Message }</span>
+								if n.SpaceSlug != "" {
+									<a href={ templ.SafeURL("/app/" + n.SpaceSlug) } class="text-xs text-warm-faint hover:text-brand transition-colors flex-shrink-0">{ n.SpaceName }</a>
+								}
+								<span class="text-xs text-warm-faint flex-shrink-0">{ dashRelativeTime(n.CreatedAt) }</span>
+							</div>
+						}
+					</div>
+				}
 			</main>
 			@simpleFooter()
 		</body>

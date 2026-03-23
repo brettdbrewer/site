@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,6 +57,7 @@ func (h *Handlers) SetMind(m *Mind) { h.mind = m }
 func (h *Handlers) Register(mux *http.ServeMux) {
 	// Space management (requires auth).
 	mux.Handle("GET /app", h.writeWrap(h.handleSpaceIndex))
+	mux.Handle("GET /app/notifications", h.writeWrap(h.handleNotifications))
 	mux.Handle("POST /app/new", h.writeWrap(h.handleCreateSpace))
 
 	// Space settings (requires auth, owner only).
@@ -131,6 +133,14 @@ func (h *Handlers) userKind(r *http.Request) string {
 		return "human"
 	}
 	return u.Kind
+}
+
+// notify creates a notification for a user (skips if targetID is the actor).
+func (h *Handlers) notify(ctx context.Context, targetID, actorName, opID, spaceID, message string) {
+	if targetID == "" || targetID == "anonymous" {
+		return
+	}
+	h.store.CreateNotification(ctx, targetID, opID, spaceID, actorName+": "+message)
 }
 
 // spaceFromRequest returns a space for write operations.
@@ -250,8 +260,25 @@ func (h *Handlers) handleSpaceIndex(w http.ResponseWriter, r *http.Request) {
 	tasks, _ := h.store.ListUserTasks(ctx, uid, 10)
 	convos, _ := h.store.ListUserConversations(ctx, uid, 5)
 	agentOps, _ := h.store.ListUserAgentActivity(ctx, uid, 10)
+	agents, _ := h.store.ListAgentNames(ctx)
 
-	Dashboard(spaces, tasks, convos, agentOps, h.viewUser(r)).Render(ctx, w)
+	defaultSlug := ""
+	if len(spaces) > 0 {
+		defaultSlug = spaces[0].Slug
+	}
+
+	unread := h.store.UnreadCount(ctx, uid)
+	Dashboard(spaces, tasks, convos, agentOps, h.viewUser(r), defaultSlug, agents, unread).Render(ctx, w)
+}
+
+func (h *Handlers) handleNotifications(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	uid := h.userID(r)
+
+	notifs, _ := h.store.ListNotifications(ctx, uid, 50)
+	h.store.MarkNotificationsRead(ctx, uid)
+
+	NotificationsView(notifs, h.viewUser(r)).Render(ctx, w)
 }
 
 func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
@@ -878,7 +905,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "intend", nil)
+		op, _ := h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "intend", nil)
+
+		// Notify assignee if task was created with one.
+		if assigneeID != "" && assigneeID != actorID && op != nil {
+			h.notify(ctx, assigneeID, actor, op.ID, space.ID, "created a task for you: "+node.Title)
+		}
 
 		// Trigger Mind if task was created with an agent assignee.
 		if h.mind != nil && assigneeID != "" {
@@ -1003,7 +1035,18 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "respond", nil)
+		op, _ := h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "respond", nil)
+
+		// Notify conversation participants (except the sender).
+		if op != nil {
+			if parent, _ := h.store.GetNode(ctx, parentID); parent != nil && parent.Kind == KindConversation {
+				for _, tagID := range parent.Tags {
+					if tagID != actorID {
+						h.notify(ctx, tagID, actor, op.ID, space.ID, "sent a message")
+					}
+				}
+			}
+		}
 
 		// Trigger Mind auto-reply if a non-agent messaged in a conversation.
 		if h.mind != nil && actorKind != "agent" {
@@ -1069,7 +1112,12 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "assign", nil)
+		op, _ := h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "assign", nil)
+
+		// Notify assignee.
+		if assigneeID != actorID && op != nil {
+			h.notify(ctx, assigneeID, actor, op.ID, space.ID, "assigned you a task")
+		}
 
 		// Trigger Mind if task was assigned to an agent.
 		if h.mind != nil && assigneeID != "" {
