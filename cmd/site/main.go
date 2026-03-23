@@ -458,11 +458,12 @@ func main() {
 	// Knowledge page — claims across public spaces (Layer 6).
 	mux.HandleFunc("GET /knowledge", func(w http.ResponseWriter, r *http.Request) {
 		if graphStore == nil {
-			views.KnowledgePage(nil, "").Render(r.Context(), w)
+			views.KnowledgePage(nil, "", "").Render(r.Context(), w)
 			return
 		}
 		stateFilter := r.URL.Query().Get("state")
-		claims, err := graphStore.ListKnowledgeClaims(r.Context(), stateFilter, "", 100)
+		query := r.URL.Query().Get("q")
+		claims, err := graphStore.ListKnowledgeClaims(r.Context(), stateFilter, query, 100)
 		if err != nil {
 			log.Printf("knowledge: %v", err)
 		}
@@ -475,7 +476,7 @@ func main() {
 				Challenges: c.Challenges, CreatedAt: c.CreatedAt,
 			})
 		}
-		views.KnowledgePage(vc, stateFilter).Render(r.Context(), w)
+		views.KnowledgePage(vc, stateFilter, query).Render(r.Context(), w)
 	})
 
 	// Health check for Fly.io.

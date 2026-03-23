@@ -19,7 +19,7 @@ type KnowledgeClaim struct {
 	CreatedAt  time.Time
 }
 
-templ KnowledgePage(claims []KnowledgeClaim, stateFilter string) {
+templ KnowledgePage(claims []KnowledgeClaim, stateFilter string, query string) {
 	@Layout("Knowledge", "Knowledge claims on lovyou.ai — verifiable assertions with epistemic status and provenance.") {
 		<div class="space-y-8">
 			<div class="reveal" style="--d:0">
@@ -27,6 +27,16 @@ templ KnowledgePage(claims []KnowledgeClaim, stateFilter string) {
 				<p class="text-warm-muted mt-2">
 					Claims with epistemic status across public spaces. Assert what you know, challenge what you doubt.
 				</p>
+				<form action="/knowledge" method="GET" class="mt-4 flex gap-2">
+					<input type="text" name="q" value={ query } placeholder="Search claims..."
+						class="flex-1 max-w-md text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+					if stateFilter != "" {
+						<input type="hidden" name="state" value={ stateFilter }/>
+					}
+					if query != "" {
+						<a href={ templ.SafeURL("/knowledge?state=" + stateFilter) } class="text-xs text-warm-faint hover:text-brand transition-colors flex items-center px-2">Clear</a>
+					}
+				</form>
 				<div class="flex gap-2 mt-4">
 					<a href="/knowledge" class={ "text-xs px-3 py-1.5 rounded-lg transition-colors", templ.KV("bg-brand/15 text-brand", stateFilter == ""), templ.KV("bg-elevated text-warm-muted hover:text-warm", stateFilter != "") }>All</a>
 					<a href="/knowledge?state=claimed" class={ "text-xs px-3 py-1.5 rounded-lg transition-colors", templ.KV("bg-sky-500/15 text-sky-400", stateFilter == "claimed"), templ.KV("bg-elevated text-warm-muted hover:text-warm", stateFilter != "claimed") }>Claimed</a>
