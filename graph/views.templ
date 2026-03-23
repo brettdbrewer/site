@@ -647,7 +647,10 @@ templ SpaceOverview(space Space, spaces []Space, pinned []Node, recentOps []Op, 
 							<div class="flex items-center gap-2 py-1.5 px-2 text-xs text-warm-faint">
 								<span class="font-medium text-warm">{ o.Actor }</span>
 								<span class={ "text-[10px] font-medium px-1.5 py-0.5 rounded-full", opBadgeClass(o.Op) }>{ o.Op }</span>
-								<span class="ml-auto">{ dashRelativeTime(o.CreatedAt) }</span>
+								if o.NodeTitle != "" && o.NodeID != "" {
+									<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", space.Slug, o.NodeID)) } class="text-warm-secondary hover:text-brand transition-colors truncate max-w-[150px]">{ truncate(o.NodeTitle, 40) }</a>
+								}
+								<span class="ml-auto flex-shrink-0">{ dashRelativeTime(o.CreatedAt) }</span>
 							</div>
 						}
 					</div>
