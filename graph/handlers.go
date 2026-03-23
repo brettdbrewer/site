@@ -662,7 +662,7 @@ func (h *Handlers) handleChangelog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleGovernance(w http.ResponseWriter, r *http.Request) {
-	space, _, err := h.spaceForRead(r)
+	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -684,7 +684,7 @@ func (h *Handlers) handleGovernance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	GovernanceView(*space, spaces, proposals, h.viewUser(r)).Render(r.Context(), w)
+	GovernanceView(*space, spaces, proposals, h.viewUser(r), isOwner).Render(r.Context(), w)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1460,6 +1460,44 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "vote", "vote": vote})
+			return
+		}
+		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)
+
+	case "close_proposal":
+		nodeID := r.FormValue("node_id")
+		outcome := r.FormValue("outcome") // "passed" or "rejected"
+		if nodeID == "" || (outcome != "passed" && outcome != "rejected") {
+			http.Error(w, "node_id and outcome (passed/rejected) required", http.StatusBadRequest)
+			return
+		}
+		// Only space owner can close proposals.
+		if space.OwnerID != actorID {
+			http.Error(w, "only space owner can close proposals", http.StatusForbidden)
+			return
+		}
+		node, err := h.store.GetNode(ctx, nodeID)
+		if err != nil || node == nil {
+			http.NotFound(w, r)
+			return
+		}
+		if node.Kind != KindProposal {
+			http.Error(w, "can only close proposals", http.StatusBadRequest)
+			return
+		}
+		newState := ProposalPassed
+		if outcome == "rejected" {
+			newState = ProposalFailed
+		}
+		if err := h.store.UpdateNodeState(ctx, nodeID, newState); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		payload, _ := json.Marshal(map[string]string{"outcome": outcome})
+		h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "close_proposal", payload)
+
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, map[string]string{"op": "close_proposal", "outcome": outcome})
 			return
 		}
 		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)
