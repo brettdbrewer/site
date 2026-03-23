@@ -946,7 +946,23 @@ func (h *Handlers) handleNodeDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner).Render(r.Context(), w)
+	// Build parent chain for breadcrumbs.
+	var parents []Node
+	cur := node
+	for cur.ParentID != "" && len(parents) < 5 {
+		p, err := h.store.GetNode(r.Context(), cur.ParentID)
+		if err != nil || p == nil {
+			break
+		}
+		parents = append(parents, *p)
+		cur = p
+	}
+	// Reverse so root parent is first.
+	for i, j := 0, len(parents)-1; i < j; i, j = i+1, j-1 {
+		parents[i], parents[j] = parents[j], parents[i]
+	}
+
+	NodeDetailView(*space, *node, children, ops, h.viewUser(r), isOwner, parents).Render(r.Context(), w)
 }
 
 // ────────────────────────────────────────────────────────────────────

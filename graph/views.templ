@@ -1698,15 +1698,25 @@ templ proposalStateBadge(state string) {
 
 // ── Node detail ─────────────────────────────────────────────────
 
-templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user ViewUser, isOwner bool) {
+templ NodeDetailView(space Space, node Node, children []Node, ops []Op, user ViewUser, isOwner bool, parents []Node) {
 	@appLayout(space, []Space{space}, "", user) {
 		<div class="max-w-3xl mx-auto p-6 space-y-8">
 			<!-- Breadcrumb -->
-			<div class="text-sm">
+			<div class="text-sm flex flex-wrap items-center gap-1">
 				<a href={ templ.SafeURL("/app/" + space.Slug) } class="text-warm-faint hover:text-brand transition-colors">
 					{ space.Name }
 				</a>
-				<span class="text-warm-faint mx-1.5">/</span>
+				for _, p := range parents {
+					<span class="text-warm-faint">/</span>
+					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", space.Slug, p.ID)) } class="text-warm-faint hover:text-brand transition-colors truncate max-w-[150px]">
+						if p.Title != "" {
+							{ p.Title }
+						} else {
+							{ p.Kind }
+						}
+					</a>
+				}
+				<span class="text-warm-faint">/</span>
 				<span class="text-warm-secondary">
 					if node.Title != "" {
 						{ node.Title }
