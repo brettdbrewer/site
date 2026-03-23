@@ -862,6 +862,8 @@ templ newTaskInline(spaceSlug string, agents []string) {
 			<input type="hidden" name="op" value="intend"/>
 			<input type="text" name="title" placeholder="Task title" required
 				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+			<textarea name="description" placeholder="Description (optional — helps agents understand the task)" rows="2"
+				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint resize-none"></textarea>
 			<div>
 				<input type="text" name="assignee" id="task-assignee" placeholder="Assign to..."
 					class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
