@@ -1038,6 +1038,9 @@ templ ThreadsView(space Space, spaces []Space, threads []Node, user ViewUser, is
 								<span>{ thread.Author }</span>
 							}
 							<span>{ thread.CreatedAt.Format("Jan 2") }</span>
+							if thread.ChildCount > 0 {
+								<span class="text-warm-muted">{ fmt.Sprintf("%d replies", thread.ChildCount) }</span>
+							}
 						</div>
 					</a>
 				}
@@ -1125,7 +1128,10 @@ templ ConversationsView(space Space, spaces []Space, convos []ConversationSummar
 									<span class="text-warm-muted">{ resolveName(tag, nameMap) }</span>
 								}
 							</div>
-							<span class="ml-auto">{ convo.UpdatedAt.Format("Jan 2, 3:04 PM") }</span>
+							if convo.ChildCount > 0 {
+								<span class="text-warm-muted ml-auto mr-2">{ fmt.Sprintf("%d msgs", convo.ChildCount) }</span>
+							}
+							<span class={ templ.KV("ml-auto", convo.ChildCount == 0) }>{ convo.UpdatedAt.Format("Jan 2, 3:04 PM") }</span>
 						</div>
 					</a>
 				}
