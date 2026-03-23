@@ -171,8 +171,64 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 					{ children... }
 				</main>
 			</div>
+			@commandPalette()
 		</body>
 	</html>
+}
+
+templ commandPalette() {
+	<dialog id="cmd-palette" class="bg-transparent backdrop:bg-void/60 backdrop:backdrop-blur-sm p-0 m-0 fixed inset-0 w-full h-full z-50">
+		<div class="flex items-start justify-center pt-[20vh] min-h-full" onclick="document.getElementById('cmd-palette').close()">
+			<div class="w-full max-w-lg bg-surface border border-edge rounded-xl shadow-2xl shadow-brand/10 overflow-hidden" onclick="event.stopPropagation()">
+				<div class="flex items-center gap-2 px-4 py-3 border-b border-edge">
+					<svg class="w-4 h-4 text-warm-faint flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+					</svg>
+					<input
+						id="cmd-palette-input"
+						type="text"
+						placeholder="Search spaces, tasks, people..."
+						class="flex-1 bg-transparent text-sm text-warm placeholder-warm-faint outline-none"
+						hx-get="/api/palette"
+						hx-trigger="keyup changed delay:150ms"
+						hx-target="#cmd-palette-results"
+						name="q"
+						autocomplete="off"
+					/>
+					<kbd class="text-[10px] text-warm-faint bg-elevated px-1.5 py-0.5 rounded border border-edge">esc</kbd>
+				</div>
+				<div id="cmd-palette-results" class="max-h-80 overflow-y-auto py-1">
+					<div class="p-4 text-center text-warm-faint text-sm">Type to search...</div>
+				</div>
+			</div>
+		</div>
+	</dialog>
+	<script>
+		(function(){
+			var d=document.getElementById('cmd-palette'),inp=document.getElementById('cmd-palette-input');
+			document.addEventListener('keydown',function(e){
+				if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();d.showModal();inp.value='';inp.focus();return}
+				if(e.key==='Escape'&&d.open){d.close();return}
+			});
+			d.addEventListener('close',function(){inp.value='';document.getElementById('cmd-palette-results').innerHTML='<div class="p-4 text-center text-warm-faint text-sm">Type to search...</div>'});
+			// Navigate results with arrow keys and enter
+			document.getElementById('cmd-palette-results').addEventListener('keydown',function(e){
+				if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+					e.preventDefault();
+					var links=this.querySelectorAll('a');if(!links.length)return;
+					var cur=this.querySelector('a.bg-elevated');
+					var idx=cur?Array.from(links).indexOf(cur):-1;
+					if(cur)cur.classList.remove('bg-elevated');
+					idx=e.key==='ArrowDown'?Math.min(idx+1,links.length-1):Math.max(idx-1,0);
+					links[idx].classList.add('bg-elevated');links[idx].scrollIntoView({block:'nearest'});
+				}
+				if(e.key==='Enter'){var sel=this.querySelector('a.bg-elevated');if(sel)window.location=sel.href;}
+			});
+			inp.addEventListener('keydown',function(e){
+				if(e.key==='ArrowDown'){e.preventDefault();var r=document.getElementById('cmd-palette-results');r.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}));}
+			});
+		})();
+	</script>
 }
 
 templ lensLink(spaceSlug, lens, label, activeLens string, icon templ.Component) {
@@ -417,6 +473,7 @@ templ Dashboard(spaces []Space, tasks []DashboardTask, convos []DashboardConvers
 				</div>
 			</main>
 			@simpleFooter()
+			@commandPalette()
 		</body>
 	</html>
 }
@@ -571,6 +628,7 @@ templ SpaceOnboarding(user ViewUser) {
 				</div>
 			</main>
 			@simpleFooter()
+			@commandPalette()
 		</body>
 	</html>
 }
@@ -730,6 +788,7 @@ templ NotificationsView(notifs []Notification, user ViewUser) {
 				}
 			</main>
 			@simpleFooter()
+			@commandPalette()
 		</body>
 	</html>
 }
@@ -2480,6 +2539,7 @@ templ APIKeysView(keys []ViewAPIKey, user ViewUser) {
 				</div>
 			</main>
 			@simpleFooter()
+			@commandPalette()
 		</body>
 	</html>
 }

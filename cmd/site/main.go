@@ -276,6 +276,44 @@ func main() {
 		views.SearchPage(result).Render(r.Context(), w)
 	})
 
+	// Command palette search (returns compact HTML fragment).
+	mux.HandleFunc("GET /api/palette", func(w http.ResponseWriter, r *http.Request) {
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if graphStore == nil || q == "" {
+			w.Write([]byte(`<div class="p-4 text-center text-warm-faint text-sm">Type to search...</div>`))
+			return
+		}
+		sr := graphStore.Search(r.Context(), q, 6)
+		var buf strings.Builder
+		if len(sr.Spaces) > 0 {
+			buf.WriteString(`<div class="px-3 py-1.5 text-[10px] font-semibold text-warm-faint uppercase tracking-wider">Spaces</div>`)
+			for _, sp := range sr.Spaces {
+				buf.WriteString(fmt.Sprintf(`<a href="/app/%s" class="flex items-center gap-2 px-3 py-2 hover:bg-elevated transition-colors rounded-md mx-1 text-sm text-warm"><span class="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0"></span>%s</a>`, sp.Slug, sp.Name))
+			}
+		}
+		if len(sr.Nodes) > 0 {
+			buf.WriteString(`<div class="px-3 py-1.5 text-[10px] font-semibold text-warm-faint uppercase tracking-wider">Items</div>`)
+			for _, n := range sr.Nodes {
+				buf.WriteString(fmt.Sprintf(`<a href="/app/%s/node/%s" class="flex items-center gap-2 px-3 py-2 hover:bg-elevated transition-colors rounded-md mx-1 text-sm"><span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-warm-faint/20 text-warm-muted">%s</span><span class="text-warm truncate">%s</span><span class="text-[10px] text-warm-faint ml-auto flex-shrink-0">%s</span></a>`, n.SpaceSlug, n.ID, n.Kind, n.Title, n.SpaceName))
+			}
+		}
+		if len(sr.Users) > 0 {
+			buf.WriteString(`<div class="px-3 py-1.5 text-[10px] font-semibold text-warm-faint uppercase tracking-wider">People</div>`)
+			for _, u := range sr.Users {
+				badge := ""
+				if u.Kind == "agent" {
+					badge = ` <span class="text-[9px] px-1 py-0.5 rounded bg-violet-500/10 text-violet-400">agent</span>`
+				}
+				buf.WriteString(fmt.Sprintf(`<a href="/user/%s" class="flex items-center gap-2 px-3 py-2 hover:bg-elevated transition-colors rounded-md mx-1 text-sm text-warm">%s%s</a>`, u.Name, u.Name, badge))
+			}
+		}
+		if buf.Len() == 0 {
+			buf.WriteString(`<div class="p-4 text-center text-warm-faint text-sm">No results</div>`)
+		}
+		w.Write([]byte(buf.String()))
+	})
+
 	// Discover page — list public spaces (no auth required).
 	mux.HandleFunc("GET /discover", func(w http.ResponseWriter, r *http.Request) {
 		if graphStore == nil {
