@@ -374,9 +374,8 @@ type SpaceWithStats struct {
 
 // ListPublicSpaces returns all public spaces with node counts, last activity,
 // member count, and agent presence.
-func (s *Store) ListPublicSpaces(ctx context.Context) ([]SpaceWithStats, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT s.id, s.slug, s.name, s.description, s.owner_id, s.kind, s.visibility, s.created_at,
+func (s *Store) ListPublicSpaces(ctx context.Context, query ...string) ([]SpaceWithStats, error) {
+	q := `SELECT s.id, s.slug, s.name, s.description, s.owner_id, s.kind, s.visibility, s.created_at,
 		        COALESCE(n.cnt, 0), n.last_at,
 		        COALESCE(m.member_count, 0), COALESCE(m.has_agent, false)
 		 FROM spaces s
@@ -391,8 +390,14 @@ func (s *Store) ListPublicSpaces(ctx context.Context) ([]SpaceWithStats, error) 
 		     LEFT JOIN users u ON u.id = o.actor_id
 		     WHERE o.space_id = s.id
 		 ) m ON true
-		 WHERE s.visibility = 'public'
-		 ORDER BY COALESCE(n.last_at, s.created_at) DESC`)
+		 WHERE s.visibility = 'public'`
+	var args []any
+	if len(query) > 0 && query[0] != "" {
+		q += ` AND (s.name ILIKE $1 OR s.description ILIKE $1)`
+		args = append(args, "%"+query[0]+"%")
+	}
+	q += ` ORDER BY COALESCE(n.last_at, s.created_at) DESC`
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list public spaces: %w", err)
 	}

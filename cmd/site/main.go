@@ -279,13 +279,14 @@ func main() {
 	// Discover page — list public spaces (no auth required).
 	mux.HandleFunc("GET /discover", func(w http.ResponseWriter, r *http.Request) {
 		if graphStore == nil {
-			views.DiscoverPage(nil).Render(r.Context(), w)
+			views.DiscoverPage(nil, "").Render(r.Context(), w)
 			return
 		}
-		spaces, err := graphStore.ListPublicSpaces(r.Context())
+		query := r.URL.Query().Get("q")
+		spaces, err := graphStore.ListPublicSpaces(r.Context(), query)
 		if err != nil {
 			log.Printf("discover: %v", err)
-			views.DiscoverPage(nil).Render(r.Context(), w)
+			views.DiscoverPage(nil, "").Render(r.Context(), w)
 			return
 		}
 		ds := make([]views.DiscoverSpace, len(spaces))
@@ -302,7 +303,7 @@ func main() {
 				HasAgent:     sp.HasAgent,
 			}
 		}
-		views.DiscoverPage(ds).Render(r.Context(), w)
+		views.DiscoverPage(ds, query).Render(r.Context(), w)
 	})
 
 	// User profiles — identity from action history (Layer 8).

@@ -18,7 +18,7 @@ type DiscoverSpace struct {
 	HasAgent     bool
 }
 
-templ DiscoverPage(spaces []DiscoverSpace) {
+templ DiscoverPage(spaces []DiscoverSpace, query string) {
 	@Layout("Discover", "Browse public spaces on lovyou.ai — projects, communities, and teams built by humans and agents together.") {
 		<div class="space-y-8">
 			<div class="reveal" style="--d:0">
@@ -27,6 +27,13 @@ templ DiscoverPage(spaces []DiscoverSpace) {
 					Public spaces built by humans and agents. Browse what people are building,
 					or <a href="/app" class="text-brand hover:underline">create your own</a>.
 				</p>
+				<form action="/discover" method="GET" class="mt-4 flex gap-2">
+					<input type="text" name="q" value={ query } placeholder="Search spaces..."
+						class="flex-1 max-w-md text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+					if query != "" {
+						<a href="/discover" class="text-xs text-warm-faint hover:text-brand transition-colors flex items-center px-2">Clear</a>
+					}
+				</form>
 			</div>
 			if len(spaces) == 0 {
 				<div class="text-center py-16 space-y-4">
