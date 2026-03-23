@@ -571,10 +571,12 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 
 	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
+	searchQuery := r.URL.Query().Get("q")
 	posts, err := h.store.ListNodes(r.Context(), ListNodesParams{
 		SpaceID:  space.ID,
 		Kind:     KindPost,
 		ParentID: "root",
+		Query:    searchQuery,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -587,7 +589,7 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	agents, _ := h.store.ListAgentNames(r.Context())
-	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0).Render(r.Context(), w)
+	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {

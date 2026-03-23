@@ -976,12 +976,19 @@ templ TaskCard(node Node, spaceSlug string) {
 
 // ── Feed view ───────────────────────────────────────────────────
 
-templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner bool, hasAgent bool) {
+templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner bool, hasAgent bool, searchQuery string) {
 	@appLayout(space, spaces, "feed", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
 				<h1 class="text-xl font-medium text-warm">Feed</h1>
 			</div>
+			<form action={ templ.SafeURL("/app/" + space.Slug + "/feed") } method="GET" class="flex gap-2">
+				<input type="text" name="q" value={ searchQuery } placeholder="Search posts..."
+					class="flex-1 px-3 py-1.5 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand"/>
+				if searchQuery != "" {
+					<a href={ templ.SafeURL("/app/" + space.Slug + "/feed") } class="text-xs text-warm-faint hover:text-brand transition-colors flex items-center px-2">Clear</a>
+				}
+			</form>
 			if hasAgent && user.Name != "" && user.Name != "Anonymous" {
 				<a href={ templ.SafeURL("/app/" + space.Slug + "/conversations") }
 					class="block p-4 bg-violet-500/5 border border-violet-500/20 rounded-lg hover:bg-violet-500/10 transition-colors">
