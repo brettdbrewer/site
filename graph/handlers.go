@@ -1673,7 +1673,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "title required", http.StatusBadRequest)
 			return
 		}
-		node, err := h.store.CreateNode(ctx, CreateNodeParams{
+		params := CreateNodeParams{
 			SpaceID:    space.ID,
 			Kind:       KindProposal,
 			Title:      title,
@@ -1682,7 +1682,13 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			Author:     actor,
 			AuthorID:   actorID,
 			AuthorKind: actorKind,
-		})
+		}
+		if dl := r.FormValue("deadline"); dl != "" {
+			if t, err := time.Parse("2006-01-02", dl); err == nil {
+				params.DueDate = &t
+			}
+		}
+		node, err := h.store.CreateNode(ctx, params)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

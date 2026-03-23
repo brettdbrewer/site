@@ -1652,9 +1652,19 @@ templ GovernanceView(space Space, spaces []Space, proposals []ProposalWithVotes,
 					rows="2"
 					class="w-full px-3 py-2 bg-elevated border border-edge rounded-lg text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none"
 				></textarea>
-				<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
-					Submit proposal
-				</button>
+				<div class="flex items-center gap-3">
+					<button type="submit" class="px-4 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
+						Submit proposal
+					</button>
+					<div class="flex items-center gap-2">
+						<label class="text-xs text-warm-faint">Deadline</label>
+						<input
+							type="date"
+							name="deadline"
+							class="px-2 py-1 bg-elevated border border-edge rounded-lg text-xs text-warm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+						/>
+					</div>
+				</div>
 			</form>
 			if len(proposals) == 0 {
 				<div class="text-center py-12">
@@ -1691,6 +1701,13 @@ templ proposalCard(p ProposalWithVotes, spaceSlug string, isOwner bool) {
 					}
 					<span>{ p.Author }</span>
 					<span>{ p.CreatedAt.Format("Jan 2") }</span>
+					if p.DueDate != nil {
+						if p.DueDate.Before(time.Now()) && p.State == ProposalOpen {
+							<span class="text-red-400 font-medium">overdue { p.DueDate.Format("Jan 2") }</span>
+						} else {
+							<span>closes { p.DueDate.Format("Jan 2") }</span>
+						}
+					}
 				</div>
 			</div>
 			<div class="flex items-center gap-2 flex-shrink-0">
