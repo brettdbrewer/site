@@ -1303,7 +1303,7 @@ templ TaskCard(node Node, spaceSlug string) {
 
 // ── Feed view ───────────────────────────────────────────────────
 
-templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner bool, hasAgent bool, searchQuery string, endorseCounts map[string]int, userEndorsed map[string]bool) {
+templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner bool, hasAgent bool, searchQuery string, endorseCounts map[string]int, userEndorsed map[string]bool, quotePost *Node) {
 	@appLayout(space, spaces, "feed", user) {
 		<div class="max-w-2xl mx-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
@@ -1340,8 +1340,20 @@ templ FeedView(space Space, spaces []Space, posts []Node, user ViewUser, isOwner
 					class="bg-surface rounded-lg border border-edge p-4 space-y-3"
 				>
 					<input type="hidden" name="op" value="express"/>
+					if quotePost != nil {
+						<input type="hidden" name="quote_of_id" value={ quotePost.ID }/>
+						<div class="rounded-lg border border-brand/30 p-3 bg-brand/5">
+							<div class="flex items-center gap-1 mb-1">
+								<span class="text-xs font-medium text-warm-muted">Quoting { quotePost.Author }</span>
+								if quotePost.Title != "" {
+									<span class="text-xs text-warm-faint">· { quotePost.Title }</span>
+								}
+							</div>
+							<p class="text-xs text-warm-faint line-clamp-2">{ truncate(quotePost.Body, 120) }</p>
+						</div>
+					}
 					<input type="text" name="title" placeholder="Title (optional)" class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
-					<textarea name="body" placeholder="What's on your mind?" rows="3" required class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none text-warm placeholder-warm-faint"></textarea>
+					<textarea name="body" placeholder={ quotePostPlaceholder(quotePost) } rows="3" required class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none text-warm placeholder-warm-faint"></textarea>
 					<div class="flex justify-end">
 						<button type="submit" class="px-4 py-1.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Post</button>
 					</div>
@@ -1392,12 +1404,27 @@ templ FeedCard(node Node, spaceSlug string, endorseCount int, endorsed bool) {
 		if node.Title != "" {
 			<h3 class="font-medium text-warm mb-1">{ node.Title }</h3>
 		}
+		if node.QuoteOfID != "" {
+			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.QuoteOfID)) }
+				class="block mt-2 mb-1 rounded-lg border border-edge p-3 hover:border-brand/30 transition-colors">
+				<div class="flex items-center gap-1 mb-1">
+					<span class="text-xs font-medium text-warm-muted">{ node.QuoteOfAuthor }</span>
+					if node.QuoteOfTitle != "" {
+						<span class="text-xs text-warm-faint">· { node.QuoteOfTitle }</span>
+					}
+				</div>
+				<p class="text-xs text-warm-faint line-clamp-2">{ node.QuoteOfBody }</p>
+			</a>
+		}
 		<div class="text-sm text-warm-secondary prose prose-invert prose-sm max-w-none">
 			@renderMarkdown(node.Body)
 		</div>
 		<div class="mt-3 flex items-center gap-4 text-xs text-warm-faint">
 			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", spaceSlug, node.ID)) } class="hover:text-brand transition-colors">
 				{ fmt.Sprintf("%d replies", node.ChildCount) }
+			</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/feed?quote=%s", spaceSlug, node.ID)) } class="hover:text-brand transition-colors">
+				quote
 			</a>
 			<div id={ "endorse-" + node.ID }>
 				@endorseButton(node.ID, spaceSlug, endorseCount, endorsed)
@@ -3253,6 +3280,13 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "…"
+}
+
+func quotePostPlaceholder(q *Node) string {
+	if q != nil {
+		return "Add your thoughts..."
+	}
+	return "What's on your mind?"
 }
 
 func containsStr(ss []string, s string) bool {

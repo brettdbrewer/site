@@ -615,7 +615,13 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 	endorseCounts := h.store.GetBulkEndorsementCounts(r.Context(), postIDs)
 	userEndorsed := h.store.GetBulkUserEndorsements(r.Context(), h.userID(r), postIDs)
 
-	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, endorseCounts, userEndorsed).Render(r.Context(), w)
+	// Quote: load the quoted post for compose form preview.
+	var quotePost *Node
+	if qid := r.URL.Query().Get("quote"); qid != "" {
+		quotePost, _ = h.store.GetNode(r.Context(), qid)
+	}
+
+	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, endorseCounts, userEndorsed, quotePost).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
@@ -1225,6 +1231,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "title or body required", http.StatusBadRequest)
 			return
 		}
+		quoteOfID := strings.TrimSpace(r.FormValue("quote_of_id"))
 		node, err := h.store.CreateNode(ctx, CreateNodeParams{
 			SpaceID:    space.ID,
 			Kind:       KindPost,
@@ -1233,6 +1240,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			Author:     actor,
 			AuthorID:   actorID,
 			AuthorKind: actorKind,
+			QuoteOfID:  quoteOfID,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
