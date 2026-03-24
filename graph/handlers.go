@@ -614,6 +614,8 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	endorseCounts := h.store.GetBulkEndorsementCounts(r.Context(), postIDs)
 	userEndorsed := h.store.GetBulkUserEndorsements(r.Context(), h.userID(r), postIDs)
+	repostCounts := h.store.GetBulkRepostCounts(r.Context(), postIDs)
+	userReposted := h.store.GetBulkUserReposts(r.Context(), h.userID(r), postIDs)
 
 	// Quote: load the quoted post for compose form preview.
 	var quotePost *Node
@@ -621,7 +623,7 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		quotePost, _ = h.store.GetNode(r.Context(), qid)
 	}
 
-	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, endorseCounts, userEndorsed, quotePost).Render(r.Context(), w)
+	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, endorseCounts, userEndorsed, repostCounts, userReposted, quotePost).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {
@@ -1253,7 +1255,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if isHTMX(r) {
-			FeedCard(*node, space.Slug, 0, false).Render(ctx, w)
+			FeedCard(*node, space.Slug, 0, false, 0, false).Render(ctx, w)
 			return
 		}
 		http.Redirect(w, r, "/app/"+space.Slug+"/feed", http.StatusSeeOther)
@@ -1922,6 +1924,33 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		if isHTMX(r) {
 			count := h.store.CountEndorsements(ctx, nodeID)
 			endorseButton(nodeID, space.Slug, count, !endorsed).Render(ctx, w)
+			return
+		}
+		http.Redirect(w, r, r.Header.Get("Referer"), http.StatusSeeOther)
+
+	case "repost":
+		nodeID := r.FormValue("node_id")
+		if nodeID == "" {
+			http.Error(w, "node_id required", http.StatusBadRequest)
+			return
+		}
+		reposted := h.store.HasReposted(ctx, actorID, nodeID)
+		if reposted {
+			h.store.Unrepost(ctx, actorID, nodeID)
+		} else {
+			h.store.Repost(ctx, actorID, nodeID)
+			h.store.RecordOp(ctx, space.ID, nodeID, actor, actorID, "repost", nil)
+			if node, err := h.store.GetNode(ctx, nodeID); err == nil && node.AuthorID != actorID {
+				h.notify(ctx, node.AuthorID, actor, nodeID, space.ID, "reposted your post")
+			}
+		}
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, map[string]any{"op": "repost", "reposted": !reposted})
+			return
+		}
+		if isHTMX(r) {
+			counts := h.store.GetBulkRepostCounts(ctx, []string{nodeID})
+			repostButton(nodeID, space.Slug, counts[nodeID], !reposted).Render(ctx, w)
 			return
 		}
 		http.Redirect(w, r, r.Header.Get("Referer"), http.StatusSeeOther)

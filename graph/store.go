@@ -308,6 +308,14 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 CREATE INDEX IF NOT EXISTS idx_follows_followed ON follows(followed_id);
 
+CREATE TABLE IF NOT EXISTS reposts (
+    user_id  TEXT NOT NULL,
+    node_id  TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_reposts_node ON reposts(node_id);
+
 -- Backfill assignee_id from users table where assignee name matches.
 UPDATE nodes SET assignee_id = u.id
 FROM users u WHERE nodes.assignee = u.name AND nodes.assignee_id = '' AND nodes.assignee != '';
@@ -1917,6 +1925,80 @@ func (s *Store) CountFollowing(ctx context.Context, userID string) int {
 	s.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM follows WHERE follower_id = $1`, userID).Scan(&count)
 	return count
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Reposts (Layer 3 — Social / Propagate)
+// ────────────────────────────────────────────────────────────────────
+
+// Repost records that userID reposted nodeID.
+func (s *Store) Repost(ctx context.Context, userID, nodeID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO reposts (user_id, node_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		userID, nodeID)
+	return err
+}
+
+// Unrepost removes a repost.
+func (s *Store) Unrepost(ctx context.Context, userID, nodeID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM reposts WHERE user_id = $1 AND node_id = $2`,
+		userID, nodeID)
+	return err
+}
+
+// HasReposted checks if userID has reposted nodeID.
+func (s *Store) HasReposted(ctx context.Context, userID, nodeID string) bool {
+	var exists bool
+	s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND node_id = $2)`,
+		userID, nodeID).Scan(&exists)
+	return exists
+}
+
+// GetBulkRepostCounts returns repost counts for multiple nodes.
+func (s *Store) GetBulkRepostCounts(ctx context.Context, nodeIDs []string) map[string]int {
+	result := make(map[string]int)
+	if len(nodeIDs) == 0 {
+		return result
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT node_id, COUNT(*) FROM reposts WHERE node_id = ANY($1) GROUP BY node_id`,
+		pq.Array(nodeIDs))
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var count int
+		if rows.Scan(&id, &count) == nil {
+			result[id] = count
+		}
+	}
+	return result
+}
+
+// GetBulkUserReposts returns which nodes the user has reposted.
+func (s *Store) GetBulkUserReposts(ctx context.Context, userID string, nodeIDs []string) map[string]bool {
+	result := make(map[string]bool)
+	if len(nodeIDs) == 0 || userID == "" {
+		return result
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT node_id FROM reposts WHERE user_id = $1 AND node_id = ANY($2)`,
+		userID, pq.Array(nodeIDs))
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			result[id] = true
+		}
+	}
+	return result
 }
 
 // ────────────────────────────────────────────────────────────────────
