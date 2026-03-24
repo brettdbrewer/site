@@ -1192,6 +1192,80 @@ templ gettingStartedChecklist(spaceSlug string, hasTask bool, hasAgentTask bool,
 	</div>
 }
 
+templ inviteTeammatesCard(spaceSlug string, inviteToken string) {
+	<div
+		id="invite-teammates-card"
+		class="mx-4 md:mx-6 mt-4 p-4 bg-elevated border border-brand/20 rounded-xl flex items-start gap-4"
+	>
+		<div class="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-brand/10 border border-brand/20 rounded-full">
+			<svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 110-8 4 4 0 010 8zm6 4a2 2 0 100-4 2 2 0 000 4zM3 12a2 2 0 100-4 2 2 0 000 4z"></path>
+			</svg>
+		</div>
+		<div class="flex-1 min-w-0">
+			<h3 class="text-sm font-semibold text-warm">Start collaborating</h3>
+			<p class="text-xs text-warm-muted mt-0.5">Invite your team to build together with your AI peer.</p>
+			if inviteToken != "" {
+				<div class="mt-3 flex items-center gap-2">
+					<input
+						id="invite-link-input"
+						type="text"
+						readonly
+						value={ "https://lovyou.ai/join/" + inviteToken }
+						class="flex-1 min-w-0 px-2.5 py-1.5 bg-surface border border-edge rounded-lg text-xs text-warm-secondary font-mono focus:outline-none focus:ring-1 focus:ring-brand truncate"
+					/>
+					<button
+						onclick="copyInviteLink()"
+						id="invite-copy-btn"
+						class="flex-shrink-0 px-3 py-1.5 bg-brand text-void text-xs font-medium rounded-lg hover:bg-brand-dark transition-colors"
+					>Copy</button>
+				</div>
+			} else {
+				<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/invite") } class="mt-3">
+					<button type="submit" class="px-3 py-1.5 bg-brand text-void text-xs font-medium rounded-lg hover:bg-brand-dark transition-colors">Generate invite link</button>
+				</form>
+			}
+		</div>
+		<button
+			onclick="dismissInviteCard()"
+			class="flex-shrink-0 text-warm-faint hover:text-warm transition-colors"
+			aria-label="Dismiss"
+		>
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+			</svg>
+		</button>
+	</div>
+	<script>
+	function copyInviteLink() {
+		var input = document.getElementById('invite-link-input');
+		var btn = document.getElementById('invite-copy-btn');
+		if (!input || !btn) return;
+		navigator.clipboard.writeText(input.value).then(function() {
+			btn.textContent = 'Copied!';
+			setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+		}).catch(function() {
+			input.select();
+			document.execCommand('copy');
+			btn.textContent = 'Copied!';
+			setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+		});
+	}
+	function dismissInviteCard() {
+		var card = document.getElementById('invite-teammates-card');
+		if (card) card.remove();
+		localStorage.setItem('invite_card_dismissed_' + location.pathname.split('/')[2], '1');
+	}
+	(function() {
+		var key = 'invite_card_dismissed_' + location.pathname.split('/')[2];
+		if (localStorage.getItem(key)) {
+			var card = document.getElementById('invite-teammates-card');
+			if (card) card.remove();
+		}
+	})();
+	</script>
+}
+
 templ celebrationCeremony(spaceSlug string, taskCount int, elapsedStr string) {
 	<div
 		id="celebration-modal"
@@ -1412,7 +1486,7 @@ templ spaceWelcomeModal(space Space, members []SpaceMember) {
 	</script>
 }
 
-templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string, showWelcome bool, welcomeMembers []SpaceMember) {
+templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string, showWelcome bool, welcomeMembers []SpaceMember, showInviteCard bool, inviteToken string) {
 	@appLayout(space, spaces, "board", user) {
 		if showWelcome {
 			@spaceWelcomeModal(space, welcomeMembers)
@@ -1425,6 +1499,9 @@ templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUse
 		}
 		if showChecklist && hasTask && hasAgentTask && hasCompletion {
 			@celebrationCeremony(space.Slug, taskCount, elapsedStr)
+		}
+		if showInviteCard {
+			@inviteTeammatesCard(space.Slug, inviteToken)
 		}
 		<div class="p-4 md:p-6 h-full flex flex-col">
 			<div class="flex items-center justify-between mb-4 md:mb-6 gap-2">

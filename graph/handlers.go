@@ -730,7 +730,21 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 		welcomeMembers, _ = h.store.ListMembers(r.Context(), space.ID, 10)
 	}
 
-	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion, taskCount, elapsedStr, showWelcome, welcomeMembers).Render(r.Context(), w)
+	// Invite card: show when checklist is complete and space has fewer than 2 members.
+	showInviteCard := false
+	inviteToken := ""
+	if showChecklist && hasTask && hasAgentTask && hasCompletion {
+		memberCount := h.store.MemberCount(r.Context(), space.ID)
+		if memberCount < 2 {
+			showInviteCard = true
+			inviteToken = h.store.GetInviteToken(r.Context(), space.ID)
+			if inviteToken == "" {
+				inviteToken, _ = h.store.CreateInvite(r.Context(), space.ID, uid)
+			}
+		}
+	}
+
+	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion, taskCount, elapsedStr, showWelcome, welcomeMembers, showInviteCard, inviteToken).Render(r.Context(), w)
 }
 
 func formatElapsed(d time.Duration) string {
