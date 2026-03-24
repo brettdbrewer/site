@@ -1192,22 +1192,16 @@ templ gettingStartedChecklist(spaceSlug string, hasTask bool, hasAgentTask bool,
 	</div>
 }
 
-templ whatsNextModal(spaceSlug string) {
+templ celebrationCeremony(spaceSlug string, taskCount int, elapsedStr string) {
 	<div
-		id="whats-next-modal"
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+		id="celebration-modal"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 	>
 		<div class="w-full max-w-sm bg-elevated border border-edge rounded-2xl shadow-2xl shadow-black/40 p-6 mx-4">
-			<div class="flex items-start justify-between mb-1">
-				<div class="flex items-center gap-2">
-					<svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-					</svg>
-					<h2 class="text-sm font-semibold text-warm">You're set up. What's next?</h2>
-				</div>
+			<div class="flex justify-end mb-1">
 				<button
-					onclick="dismissWhatsNext()"
-					class="text-warm-faint hover:text-warm transition-colors ml-2 flex-shrink-0"
+					onclick="dismissCelebration()"
+					class="text-warm-faint hover:text-warm transition-colors"
 					aria-label="Dismiss"
 				>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1215,7 +1209,26 @@ templ whatsNextModal(spaceSlug string) {
 					</svg>
 				</button>
 			</div>
-			<p class="text-xs text-warm-muted mb-4 ml-7">Pick a template — your AI teammate will get started.</p>
+			<div class="text-center mb-5">
+				<div class="inline-flex items-center justify-center w-14 h-14 bg-emerald-400/10 border border-emerald-400/20 rounded-full mb-3">
+					<svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+				</div>
+				<h2 class="text-base font-semibold text-warm">You're set up.</h2>
+				<p class="text-xs text-warm-muted mt-1">Here's what happened in { elapsedStr }</p>
+			</div>
+			<div class="bg-surface rounded-xl border border-edge divide-y divide-edge mb-5">
+				<div class="flex items-center justify-between px-3 py-2.5 text-xs">
+					<span class="text-warm-muted">Tasks created</span>
+					<span class="font-semibold text-warm">{ fmt.Sprintf("%d", taskCount) }</span>
+				</div>
+				<div class="flex items-center justify-between px-3 py-2.5 text-xs">
+					<span class="text-warm-muted">Completed by your agent</span>
+					<span class="font-semibold text-emerald-400">1</span>
+				</div>
+			</div>
+			<p class="text-xs font-medium text-warm mb-2">What's next? Pick a template — your agent will get started.</p>
 			<div class="space-y-2">
 				<button
 					onclick="pickNextTemplate('Plan a feature with your agent')"
@@ -1247,19 +1260,19 @@ templ whatsNextModal(spaceSlug string) {
 				</button>
 			</div>
 			<button
-				onclick="dismissWhatsNext()"
+				onclick="dismissCelebration()"
 				class="mt-4 w-full text-xs text-warm-faint hover:text-warm transition-colors py-1"
 			>Not now</button>
 		</div>
 	</div>
 	<script>
-	function dismissWhatsNext() {
-		var modal = document.getElementById('whats-next-modal');
+	function dismissCelebration() {
+		var modal = document.getElementById('celebration-modal');
 		if (modal) modal.remove();
 		localStorage.setItem('whats_next_seen_' + location.pathname.split('/')[2], '1');
 	}
 	function pickNextTemplate(title) {
-		dismissWhatsNext();
+		dismissCelebration();
 		var form = document.getElementById('new-task-form');
 		if (form) {
 			form.classList.remove('hidden');
@@ -1270,7 +1283,7 @@ templ whatsNextModal(spaceSlug string) {
 	(function() {
 		var key = 'whats_next_seen_' + location.pathname.split('/')[2];
 		if (localStorage.getItem(key)) {
-			var modal = document.getElementById('whats-next-modal');
+			var modal = document.getElementById('celebration-modal');
 			if (modal) modal.remove();
 		}
 	})();
@@ -1305,7 +1318,7 @@ templ firstCompletionToast(spaceSlug string) {
 	</div>
 }
 
-templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool) {
+templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string) {
 	@appLayout(space, spaces, "board", user) {
 		if showFirstCompletionToast {
 			@firstCompletionToast(space.Slug)
@@ -1314,7 +1327,7 @@ templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUse
 			@gettingStartedChecklist(space.Slug, hasTask, hasAgentTask, hasCompletion)
 		}
 		if showChecklist && hasTask && hasAgentTask && hasCompletion {
-			@whatsNextModal(space.Slug)
+			@celebrationCeremony(space.Slug, taskCount, elapsedStr)
 		}
 		<div class="p-4 md:p-6 h-full flex flex-col">
 			<div class="flex items-center justify-between mb-4 md:mb-6 gap-2">

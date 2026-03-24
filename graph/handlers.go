@@ -688,17 +688,35 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	hasTask := false
 	hasAgentTask := false
+	taskCount := 0
 	for _, col := range columns {
 		for _, t := range col.Nodes {
 			hasTask = true
+			taskCount++
 			if t.AssigneeKind == "agent" {
 				hasAgentTask = true
 			}
 		}
 	}
 	hasCompletion := space.FirstCompletionAt != nil
+	elapsedStr := formatElapsed(time.Since(space.CreatedAt))
 
-	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion).Render(r.Context(), w)
+	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion, taskCount, elapsedStr).Render(r.Context(), w)
+}
+
+func formatElapsed(d time.Duration) string {
+	minutes := int(d.Minutes())
+	if minutes < 2 {
+		return "a minute"
+	}
+	if minutes < 60 {
+		return fmt.Sprintf("%d minutes", minutes)
+	}
+	hours := int(d.Hours())
+	if hours == 1 {
+		return "about an hour"
+	}
+	return fmt.Sprintf("about %d hours", hours)
 }
 
 func checklistDoneCount(hasTask, hasAgentTask, hasCompletion bool) int {
