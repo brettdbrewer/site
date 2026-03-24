@@ -1810,6 +1810,9 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Recompute reputation for the actor who completed the task.
+		h.store.ComputeAndUpdateReputation(ctx, actorID)
+
 		// Track first completion in this space.
 		isFirstCompletion, _ := h.store.MarkFirstCompletion(ctx, space.ID)
 
@@ -2572,6 +2575,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			}
 			h.notify(ctx, node.AssigneeID, actor, op.ID, space.ID, msg)
 		}
+		// Recompute reputation for the task's assignee (the worker being reviewed).
+		if node.AssigneeID != "" {
+			h.store.ComputeAndUpdateReputation(ctx, node.AssigneeID)
+		}
+
 		if wantsJSON(r) {
 			node, _ := h.store.GetNode(ctx, nodeID)
 			writeJSON(w, http.StatusOK, map[string]any{"node": node, "op": "review", "verdict": verdict})

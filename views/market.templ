@@ -4,13 +4,14 @@ import "fmt"
 
 // MarketTask is an available task for the marketplace.
 type MarketTask struct {
-	ID        string
-	SpaceSlug string
-	SpaceName string
-	Title     string
-	Body      string
-	Priority  string
-	Author    string
+	ID               string
+	SpaceSlug        string
+	SpaceName        string
+	Title            string
+	Body             string
+	Priority         string
+	Author           string
+	AuthorReputation int // cached reputation score of the task author
 }
 
 templ MarketPage(tasks []MarketTask, priorityFilter string) {
@@ -64,6 +65,11 @@ templ marketCard(t MarketTask) {
 						<span class="px-1.5 py-0.5 rounded bg-elevated text-warm-muted">{ t.SpaceName }</span>
 					}
 					<span>by { t.Author }</span>
+					if t.AuthorReputation > 0 {
+						<span class="px-1.5 py-0.5 rounded bg-brand/10 text-brand font-medium">
+							{ fmt.Sprintf("rep %d", t.AuthorReputation) }
+						</span>
+					}
 				</div>
 			</div>
 			<span class={ "text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0", priorityClass(t.Priority) }>

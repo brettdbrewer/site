@@ -373,6 +373,8 @@ CREATE TABLE IF NOT EXISTS users (
     kind       TEXT NOT NULL DEFAULT 'human',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_score INT NOT NULL DEFAULT 0;
 `)
 	return err
 }
@@ -1359,29 +1361,125 @@ func (s *Store) MemberCount(ctx context.Context, spaceID string) int {
 
 // GetUserProfile returns a user by name (for public profiles).
 func (s *Store) GetUserProfile(ctx context.Context, name string) (*struct {
-	ID        string
-	Name      string
-	Kind      string
-	TasksDone int
-	OpCount   int
+	ID              string
+	Name            string
+	Kind            string
+	TasksDone       int
+	OpCount         int
+	ReputationScore int
 }, error) {
 	var u struct {
-		ID        string
-		Name      string
-		Kind      string
-		TasksDone int
-		OpCount   int
+		ID              string
+		Name            string
+		Kind            string
+		TasksDone       int
+		OpCount         int
+		ReputationScore int
 	}
 	err := s.db.QueryRowContext(ctx, `
 		SELECT u.id, u.name, u.kind,
 		       COALESCE((SELECT COUNT(*) FROM nodes n WHERE n.author_id = u.id AND n.kind = 'task' AND n.state = 'done'), 0),
-		       COALESCE((SELECT COUNT(*) FROM ops o WHERE o.actor_id = u.id), 0)
+		       COALESCE((SELECT COUNT(*) FROM ops o WHERE o.actor_id = u.id), 0),
+		       u.reputation_score
 		FROM users u WHERE u.name = $1`, name,
-	).Scan(&u.ID, &u.Name, &u.Kind, &u.TasksDone, &u.OpCount)
+	).Scan(&u.ID, &u.Name, &u.Kind, &u.TasksDone, &u.OpCount, &u.ReputationScore)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// ComputeAndUpdateReputation recomputes a user's reputation score from their op
+// history across all spaces and stores it in users.reputation_score.
+// Formula: completed_tasks×1 + review_approvals×2 + review_revisions×0.5
+//          + endorsements×1.5 - review_rejections×1
+func (s *Store) ComputeAndUpdateReputation(ctx context.Context, userID string) error {
+	if userID == "" {
+		return nil
+	}
+	var completedTasks int
+	s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM nodes WHERE assignee_id = $1 AND kind = 'task' AND state = 'done'`,
+		userID).Scan(&completedTasks)
+
+	// Count review verdicts on tasks this user was assignee of.
+	var approvals, revisions, rejections int
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT COALESCE(o.payload->>'verdict', ''), COUNT(*)
+		FROM ops o
+		WHERE o.op = 'review'
+		  AND o.node_id IN (SELECT id FROM nodes WHERE assignee_id = $1 AND kind = 'task')
+		GROUP BY o.payload->>'verdict'`, userID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var verdict string
+			var count int
+			if rows.Scan(&verdict, &count) == nil {
+				switch verdict {
+				case "approve":
+					approvals = count
+				case "revise":
+					revisions = count
+				case "reject":
+					rejections = count
+				}
+			}
+		}
+	}
+
+	var endorsements int
+	s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM endorsements WHERE to_id = $1`, userID).Scan(&endorsements)
+
+	score := int(
+		float64(completedTasks)*1.0 +
+			float64(approvals)*2.0 +
+			float64(revisions)*0.5 +
+			float64(endorsements)*1.5 -
+			float64(rejections)*1.0,
+	)
+
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE users SET reputation_score = $1 WHERE id = $2`, score, userID)
+	return err
+}
+
+// GetReputationComponents returns the key stats shown on a profile: tasks completed
+// (as assignee) and review approvals received. Used for "X tasks, Y approved" display.
+func (s *Store) GetReputationComponents(ctx context.Context, userID string) (tasksCompleted, reviewApprovals int) {
+	s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM nodes WHERE assignee_id = $1 AND kind = 'task' AND state = 'done'`,
+		userID).Scan(&tasksCompleted)
+	s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM ops o
+		WHERE o.op = 'review' AND o.payload->>'verdict' = 'approve'
+		  AND o.node_id IN (SELECT id FROM nodes WHERE assignee_id = $1 AND kind = 'task')`,
+		userID).Scan(&reviewApprovals)
+	return
+}
+
+// GetBulkReputationByIDs returns reputation_score for a set of user IDs.
+func (s *Store) GetBulkReputationByIDs(ctx context.Context, userIDs []string) map[string]int {
+	result := make(map[string]int)
+	if len(userIDs) == 0 {
+		return result
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, reputation_score FROM users WHERE id = ANY($1)`,
+		pq.Array(userIDs))
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var score int
+		if rows.Scan(&id, &score) == nil {
+			result[id] = score
+		}
+	}
+	return result
 }
 
 // UserMembership is a space a user belongs to.
@@ -1485,7 +1583,7 @@ func (s *Store) ListAvailableTasks(ctx context.Context, query, priority string, 
 			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind,
 			pq.Array(&n.Tags), &n.Pinned, &dueDate, &n.CreatedAt, &n.UpdatedAt,
-			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
+			&n.Verdict, &n.Rating, &n.ChildCount, &n.ChildDone, &n.BlockerCount,
 		); err != nil {
 			return nil, err
 		}

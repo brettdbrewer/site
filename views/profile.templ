@@ -24,6 +24,9 @@ type UserProfile struct {
 	Kind            string // "human" or "agent"
 	TasksDone       int
 	OpCount         int
+	ReputationScore int    // cached reputation score from users table
+	TasksCompleted  int    // tasks completed as assignee (for reputation breakdown)
+	ReviewApprovals int    // review approvals received (for reputation breakdown)
 	Endorsements    int
 	Endorsers       []string // names of people who endorsed this user
 	HasEndorsed     bool     // whether the current viewer has endorsed this user
@@ -111,8 +114,24 @@ templ ProfilePage(profile UserProfile) {
 					</div>
 				}
 			</div>
-			if len(profile.Spaces) > 0 {
+			if profile.ReputationScore > 0 || profile.TasksCompleted > 0 {
 				<div class="reveal" style="--d:2">
+					<div class="flex items-center gap-3">
+						<div class="flex items-center gap-2 px-4 py-2 bg-surface border border-edge rounded-xl">
+							<span class="text-xs text-warm-faint">Rep</span>
+							<span class="text-lg font-semibold text-brand">{ fmt.Sprintf("%d", profile.ReputationScore) }</span>
+						</div>
+						<span class="text-sm text-warm-muted">
+							{ fmt.Sprintf("%d tasks completed", profile.TasksCompleted) }
+							if profile.ReviewApprovals > 0 {
+								<span>, { fmt.Sprintf("%d approved", profile.ReviewApprovals) }</span>
+							}
+						</span>
+					</div>
+				</div>
+			}
+			if len(profile.Spaces) > 0 {
+				<div class="reveal" style="--d:3">
 					<h2 class="text-lg font-medium text-warm mb-3">Spaces</h2>
 					<div class="flex flex-wrap gap-2">
 						for _, sp := range profile.Spaces {

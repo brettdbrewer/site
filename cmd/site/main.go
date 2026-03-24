@@ -434,9 +434,14 @@ func main() {
 		for _, m := range memberships {
 			spaces = append(spaces, views.SpaceMembership{Slug: m.SpaceSlug, Name: m.SpaceName, Kind: m.SpaceKind})
 		}
+		// Reputation components for "X tasks completed, Y approved" display.
+		tasksCompleted, reviewApprovals := graphStore.GetReputationComponents(r.Context(), u.ID)
 		views.ProfilePage(views.UserProfile{
 			Name: u.Name, Kind: u.Kind,
 			TasksDone: u.TasksDone, OpCount: u.OpCount,
+			ReputationScore: u.ReputationScore,
+			TasksCompleted:  tasksCompleted,
+			ReviewApprovals: reviewApprovals,
 			Endorsements: endorsements, Endorsers: endorsers,
 			HasEndorsed: hasEndorsed, ViewerLoggedIn: viewerLoggedIn,
 			Followers: followers, Following: following,
@@ -476,6 +481,8 @@ func main() {
 			graphStore.Endorse(r.Context(), viewer.ID, targetID)
 			graphStore.CreateNotification(r.Context(), targetID, "", "", viewer.Name+": endorsed you")
 		}
+		// Recompute reputation for the endorsed/unendorsed user.
+		graphStore.ComputeAndUpdateReputation(r.Context(), targetID)
 		http.Redirect(w, r, "/user/"+name, http.StatusSeeOther)
 	}))
 
@@ -549,17 +556,28 @@ func main() {
 		if err != nil {
 			log.Printf("market: %v", err)
 		}
+		// Collect unique author IDs for bulk reputation lookup.
+		authorIDs := make([]string, 0)
+		seen := make(map[string]bool)
+		for _, n := range nodes {
+			if n.AuthorID != "" && !seen[n.AuthorID] {
+				authorIDs = append(authorIDs, n.AuthorID)
+				seen[n.AuthorID] = true
+			}
+		}
+		repScores := graphStore.GetBulkReputationByIDs(r.Context(), authorIDs)
 		// Resolve space info for links.
 		var tasks []views.MarketTask
 		for _, n := range nodes {
-			slug, name := "", ""
+			slug, spaceName := "", ""
 			if sp, _ := graphStore.GetSpaceByID(r.Context(), n.SpaceID); sp != nil {
 				slug = sp.Slug
-				name = sp.Name
+				spaceName = sp.Name
 			}
 			tasks = append(tasks, views.MarketTask{
-				ID: n.ID, SpaceSlug: slug, SpaceName: name, Title: n.Title,
+				ID: n.ID, SpaceSlug: slug, SpaceName: spaceName, Title: n.Title,
 				Body: n.Body, Priority: n.Priority, Author: n.Author,
+				AuthorReputation: repScores[n.AuthorID],
 			})
 		}
 		views.MarketPage(tasks, priority).Render(r.Context(), w)
