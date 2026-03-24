@@ -770,3 +770,225 @@ func TestPublicSpaces(t *testing.T) {
 		t.Errorf("should not find private space")
 	}
 }
+
+func TestFollows(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	// No follows initially.
+	if store.IsFollowing(ctx, "user-a", "user-b") {
+		t.Error("should not be following initially")
+	}
+	if store.CountFollowers(ctx, "user-b") != 0 {
+		t.Error("should have 0 followers initially")
+	}
+	if store.CountFollowing(ctx, "user-a") != 0 {
+		t.Error("should be following 0 initially")
+	}
+
+	// Follow.
+	if err := store.Follow(ctx, "user-a", "user-b"); err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	if !store.IsFollowing(ctx, "user-a", "user-b") {
+		t.Error("should be following after Follow")
+	}
+	if store.CountFollowers(ctx, "user-b") != 1 {
+		t.Errorf("follower count = %d, want 1", store.CountFollowers(ctx, "user-b"))
+	}
+	if store.CountFollowing(ctx, "user-a") != 1 {
+		t.Errorf("following count = %d, want 1", store.CountFollowing(ctx, "user-a"))
+	}
+
+	// Duplicate follow is no-op.
+	store.Follow(ctx, "user-a", "user-b")
+	if store.CountFollowers(ctx, "user-b") != 1 {
+		t.Errorf("follower count after duplicate = %d, want 1", store.CountFollowers(ctx, "user-b"))
+	}
+
+	// ListFollowedIDs.
+	ids := store.ListFollowedIDs(ctx, "user-a")
+	if len(ids) != 1 || ids[0] != "user-b" {
+		t.Errorf("ListFollowedIDs = %v, want [user-b]", ids)
+	}
+
+	// Unfollow.
+	store.Unfollow(ctx, "user-a", "user-b")
+	if store.IsFollowing(ctx, "user-a", "user-b") {
+		t.Error("should not be following after Unfollow")
+	}
+	if store.CountFollowers(ctx, "user-b") != 0 {
+		t.Errorf("follower count after unfollow = %d, want 0", store.CountFollowers(ctx, "user-b"))
+	}
+}
+
+func TestReposts(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	// Create a space and post for reposting.
+	sp, _ := store.CreateSpace(ctx, "repost-test", "Repost Test", "", "test-owner", "project", "public")
+	post, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindPost, Title: "Test Post", Body: "body", Author: "tester", AuthorID: "test-owner",
+	})
+
+	// Not reposted initially.
+	if store.HasReposted(ctx, "user-a", post.ID) {
+		t.Error("should not have reposted initially")
+	}
+
+	// Repost.
+	if err := store.Repost(ctx, "user-a", post.ID); err != nil {
+		t.Fatalf("repost: %v", err)
+	}
+	if !store.HasReposted(ctx, "user-a", post.ID) {
+		t.Error("should have reposted after Repost")
+	}
+
+	// Bulk counts.
+	counts := store.GetBulkRepostCounts(ctx, []string{post.ID})
+	if counts[post.ID] != 1 {
+		t.Errorf("repost count = %d, want 1", counts[post.ID])
+	}
+
+	// Bulk user reposts.
+	userReposts := store.GetBulkUserReposts(ctx, "user-a", []string{post.ID})
+	if !userReposts[post.ID] {
+		t.Error("user should have reposted this post")
+	}
+
+	// Duplicate repost is no-op.
+	store.Repost(ctx, "user-a", post.ID)
+	counts = store.GetBulkRepostCounts(ctx, []string{post.ID})
+	if counts[post.ID] != 1 {
+		t.Errorf("repost count after duplicate = %d, want 1", counts[post.ID])
+	}
+
+	// Unrepost.
+	store.Unrepost(ctx, "user-a", post.ID)
+	if store.HasReposted(ctx, "user-a", post.ID) {
+		t.Error("should not have reposted after Unrepost")
+	}
+}
+
+func TestQuotePost(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	sp, _ := store.CreateSpace(ctx, "quote-test", "Quote Test", "", "test-owner", "project", "public")
+
+	// Create original post.
+	original, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindPost, Title: "Original", Body: "original body", Author: "alice", AuthorID: "alice-id",
+	})
+
+	// Create quote post.
+	quote, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindPost, Title: "My Quote", Body: "quoting this", Author: "bob", AuthorID: "bob-id",
+		QuoteOfID: original.ID,
+	})
+	if err != nil {
+		t.Fatalf("create quote: %v", err)
+	}
+	if quote.QuoteOfID != original.ID {
+		t.Errorf("QuoteOfID = %q, want %q", quote.QuoteOfID, original.ID)
+	}
+
+	// GetNode resolves quote fields.
+	got, err := store.GetNode(ctx, quote.ID)
+	if err != nil {
+		t.Fatalf("get quote: %v", err)
+	}
+	if got.QuoteOfID != original.ID {
+		t.Errorf("GetNode QuoteOfID = %q, want %q", got.QuoteOfID, original.ID)
+	}
+	if got.QuoteOfAuthor != "alice" {
+		t.Errorf("QuoteOfAuthor = %q, want %q", got.QuoteOfAuthor, "alice")
+	}
+	if got.QuoteOfTitle != "Original" {
+		t.Errorf("QuoteOfTitle = %q, want %q", got.QuoteOfTitle, "Original")
+	}
+	if got.QuoteOfBody == "" {
+		t.Error("QuoteOfBody should not be empty")
+	}
+}
+
+func TestMessageSearch(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	sp, _ := store.CreateSpace(ctx, "msgsearch-test", "Msg Search Test", "", "test-owner", "project", "public")
+
+	// Create a conversation with messages.
+	convo, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindConversation, Title: "Test Convo", Author: "alice", AuthorID: "alice-id", Tags: []string{"alice-id"},
+	})
+	store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindComment, ParentID: convo.ID, Body: "hello world from alice", Author: "alice", AuthorID: "alice-id",
+	})
+	store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindComment, ParentID: convo.ID, Body: "goodbye world from bob", Author: "bob", AuthorID: "bob-id",
+	})
+
+	// Search by body.
+	results, err := store.SearchMessages(ctx, sp.ID, "hello", "", 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("search 'hello' returned %d results, want 1", len(results))
+	}
+	if len(results) > 0 && results[0].ConvoTitle != "Test Convo" {
+		t.Errorf("ConvoTitle = %q, want %q", results[0].ConvoTitle, "Test Convo")
+	}
+
+	// Search by from: author.
+	results, err = store.SearchMessages(ctx, sp.ID, "", "bob", 10)
+	if err != nil {
+		t.Fatalf("search from: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("search from:bob returned %d results, want 1", len(results))
+	}
+
+	// Search with no matches.
+	results, _ = store.SearchMessages(ctx, sp.ID, "nonexistent", "", 10)
+	if len(results) != 0 {
+		t.Errorf("search 'nonexistent' returned %d results, want 0", len(results))
+	}
+}
+
+func TestBulkEndorsements(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	sp, _ := store.CreateSpace(ctx, "bulkendorse-test", "Bulk Endorse Test", "", "test-owner", "project", "public")
+	post1, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindPost, Title: "Post 1", Body: "body1", Author: "alice", AuthorID: "alice-id",
+	})
+	post2, _ := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: sp.ID, Kind: KindPost, Title: "Post 2", Body: "body2", Author: "alice", AuthorID: "alice-id",
+	})
+
+	// Endorse post1.
+	store.Endorse(ctx, "user-a", post1.ID)
+	store.Endorse(ctx, "user-b", post1.ID)
+
+	// Bulk counts.
+	counts := store.GetBulkEndorsementCounts(ctx, []string{post1.ID, post2.ID})
+	if counts[post1.ID] != 2 {
+		t.Errorf("post1 endorsements = %d, want 2", counts[post1.ID])
+	}
+	if counts[post2.ID] != 0 {
+		t.Errorf("post2 endorsements = %d, want 0", counts[post2.ID])
+	}
+
+	// Bulk user endorsements.
+	userEndorsed := store.GetBulkUserEndorsements(ctx, "user-a", []string{post1.ID, post2.ID})
+	if !userEndorsed[post1.ID] {
+		t.Error("user-a should have endorsed post1")
+	}
+	if userEndorsed[post2.ID] {
+		t.Error("user-a should not have endorsed post2")
+	}
+}

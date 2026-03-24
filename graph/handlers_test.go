@@ -238,3 +238,28 @@ func TestHandlerConversationDetail(t *testing.T) {
 		t.Errorf("got %d messages, want 1", len(messages))
 	}
 }
+
+func TestParseMessageSearch(t *testing.T) {
+	tests := []struct {
+		input      string
+		wantBody   string
+		wantFrom   string
+	}{
+		{"hello world", "hello world", ""},
+		{"from:alice", "", "alice"},
+		{"hello from:alice", "hello", "alice"},
+		{"from:bob goodbye", "goodbye", "bob"},
+		{"hello from:alice world", "hello world", "alice"},
+		{"", "", ""},
+	}
+
+	for _, tt := range tests {
+		body, from := parseMessageSearch(tt.input)
+		if body != tt.wantBody {
+			t.Errorf("parseMessageSearch(%q) body = %q, want %q", tt.input, body, tt.wantBody)
+		}
+		if from != tt.wantFrom {
+			t.Errorf("parseMessageSearch(%q) from = %q, want %q", tt.input, from, tt.wantFrom)
+		}
+	}
+}
