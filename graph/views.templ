@@ -1236,20 +1236,27 @@ templ newTaskInline(spaceSlug string, agents []string) {
 				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
 			<textarea name="description" placeholder="Description (optional — helps agents understand the task)" rows="2"
 				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint resize-none"></textarea>
-			<div>
+			if len(agents) > 0 {
+				<div class="flex items-center gap-2 px-2 py-1.5 bg-brand/5 border border-brand/20 rounded-md">
+					<input type="checkbox" id="assign-to-agent" checked
+						class="w-3.5 h-3.5 accent-brand cursor-pointer flex-shrink-0"
+						onchange={ toggleAgentAssign(agents[0]) }/>
+					<label for="assign-to-agent" class="text-xs text-warm-secondary cursor-pointer flex-1 select-none">Let your AI colleague help?</label>
+					if len(agents) == 1 {
+						<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">{ agents[0] }</span>
+					} else {
+						<select id="agent-select" class="text-[10px] px-1.5 py-0.5 bg-elevated border border-violet-500/20 rounded-full text-violet-400 focus:outline-none" onchange={ pickAgent() }>
+							for _, agent := range agents {
+								<option value={ agent }>{ agent }</option>
+							}
+						</select>
+					}
+					<input type="text" name="assignee" id="task-assignee" value={ agents[0] } class="hidden"/>
+				</div>
+			} else {
 				<input type="text" name="assignee" id="task-assignee" placeholder="Assign to..."
 					class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
-				if len(agents) > 0 {
-					<div class="flex items-center gap-1 mt-1">
-						for _, agent := range agents {
-							<button type="button"
-								class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors"
-								onclick={ setAssignee(agent) }
-							>{ agent }</button>
-						}
-					</div>
-				}
-			</div>
+			}
 			<div class="flex items-center gap-2">
 				<select name="priority" class="text-xs px-2 py-1 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand text-warm-muted">
 					<option value="medium">Medium</option>
@@ -1278,6 +1285,20 @@ script inlineStateChange(spaceSlug string, nodeID string) {
 script setAssignee(name string) {
 	document.getElementById('task-assignee').value = name;
 }
+
+script toggleAgentAssign(defaultAgent string) {
+	var cb = document.getElementById('assign-to-agent');
+	var input = document.getElementById('task-assignee');
+	if (input) { input.value = cb.checked ? defaultAgent : ''; }
+}
+
+script pickAgent() {
+	var sel = document.getElementById('agent-select');
+	var input = document.getElementById('task-assignee');
+	var cb = document.getElementById('assign-to-agent');
+	if (input && sel) { input.value = (cb && cb.checked) ? sel.value : ''; }
+}
+
 
 script replyTo(msgID string, author string, text string) {
 	var bar = document.getElementById('reply-bar');
