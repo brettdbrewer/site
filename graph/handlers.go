@@ -2419,6 +2419,10 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "progress op only valid for tasks", http.StatusBadRequest)
 			return
 		}
+		if node.State != StateActive {
+			http.Error(w, "task must be in active state to submit for review", http.StatusBadRequest)
+			return
+		}
 		if err := h.store.UpdateNodeState(ctx, nodeID, StateReview); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
