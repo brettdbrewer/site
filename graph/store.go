@@ -121,6 +121,8 @@ type Node struct {
 	DueDate       *time.Time `json:"due_date,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+	Verdict      string     `json:"verdict"`      // "approve", "revise", "reject" — set by review op
+	Rating       int        `json:"rating"`        // 1-5 quality score — set by review op
 	ChildCount   int        `json:"child_count"`
 	ChildDone    int        `json:"child_done"`
 	BlockerCount int        `json:"blocker_count"`
@@ -322,6 +324,9 @@ CREATE TABLE IF NOT EXISTS reposts (
     PRIMARY KEY (user_id, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_reposts_node ON reposts(node_id);
+
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS verdict TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS rating INT NOT NULL DEFAULT 0;
 
 -- Backfill assignee_id from users table where assignee name matches.
 UPDATE nodes SET assignee_id = u.id
@@ -626,7 +631,7 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 	err := s.db.QueryRowContext(ctx, `
 		SELECT n.id, n.space_id, n.parent_id, n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind, n.tags, n.pinned, n.due_date,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, n.verdict, n.rating,
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id), 0),
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id AND c.state = 'done'), 0),
 		       COALESCE((SELECT COUNT(*) FROM node_deps d JOIN nodes b ON b.id = d.depends_on WHERE d.node_id = n.id AND b.state != 'done'), 0),
@@ -641,7 +646,7 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 	).Scan(
 		&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 		&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind, pq.Array(&n.Tags), &n.Pinned, &dueDate,
-		&n.CreatedAt, &n.UpdatedAt,
+		&n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
 		&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 		&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 		&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
@@ -668,7 +673,7 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 	query := `
 		SELECT n.id, n.space_id, n.parent_id, n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind, n.tags, n.pinned, n.due_date,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, n.verdict, n.rating,
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id), 0),
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id AND c.state = 'done'), 0),
 		       COALESCE((SELECT COUNT(*) FROM node_deps d JOIN nodes b ON b.id = d.depends_on WHERE d.node_id = n.id AND b.state != 'done'), 0),
@@ -740,7 +745,7 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 		if err := rows.Scan(
 			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind, pq.Array(&n.Tags), &n.Pinned, &dueDate,
-			&n.CreatedAt, &n.UpdatedAt,
+			&n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
 			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 			&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 			&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
@@ -769,7 +774,7 @@ func (s *Store) ListPostsByEngagement(ctx context.Context, spaceID string, limit
 	query := `
 		SELECT n.id, n.space_id, n.parent_id, n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind, n.tags, n.pinned, n.due_date,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, n.verdict, n.rating,
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id), 0),
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id AND c.state = 'done'), 0),
 		       COALESCE((SELECT COUNT(*) FROM node_deps d JOIN nodes b ON b.id = d.depends_on WHERE d.node_id = n.id AND b.state != 'done'), 0),
@@ -806,7 +811,7 @@ func (s *Store) ListPostsByEngagement(ctx context.Context, spaceID string, limit
 		if err := rows.Scan(
 			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind, pq.Array(&n.Tags), &n.Pinned, &dueDate,
-			&n.CreatedAt, &n.UpdatedAt,
+			&n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
 			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 			&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 			&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
@@ -835,7 +840,7 @@ func (s *Store) ListPostsByTrending(ctx context.Context, spaceID string, limit i
 	query := `
 		SELECT n.id, n.space_id, n.parent_id, n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind, n.tags, n.pinned, n.due_date,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, n.verdict, n.rating,
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id), 0),
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id AND c.state = 'done'), 0),
 		       COALESCE((SELECT COUNT(*) FROM node_deps d JOIN nodes b ON b.id = d.depends_on WHERE d.node_id = n.id AND b.state != 'done'), 0),
@@ -873,7 +878,7 @@ func (s *Store) ListPostsByTrending(ctx context.Context, spaceID string, limit i
 		if err := rows.Scan(
 			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind, pq.Array(&n.Tags), &n.Pinned, &dueDate,
-			&n.CreatedAt, &n.UpdatedAt,
+			&n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
 			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 			&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 			&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
@@ -908,7 +913,7 @@ func (s *Store) ListConversations(ctx context.Context, spaceID, userID string) (
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT n.id, n.space_id, n.parent_id, n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind, n.tags, n.pinned, n.due_date,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, n.verdict, n.rating,
 		       COALESCE((SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id), 0),
 		       0, 0,
 		       lm.author, lm.author_kind, lm.body,
@@ -943,7 +948,7 @@ func (s *Store) ListConversations(ctx context.Context, spaceID, userID string) (
 		if err := rows.Scan(
 			&cs.ID, &cs.SpaceID, &parentID, &cs.Kind, &cs.Title, &cs.Body,
 			&cs.State, &cs.Priority, &cs.Assignee, &cs.AssigneeID, &cs.Author, &cs.AuthorID, &cs.AuthorKind, pq.Array(&cs.Tags), &cs.Pinned, &dueDate,
-			&cs.CreatedAt, &cs.UpdatedAt,
+			&cs.CreatedAt, &cs.UpdatedAt, &cs.Verdict, &cs.Rating,
 			&cs.ChildCount, &cs.ChildDone, &cs.BlockerCount,
 			&lastAuthor, &lastAuthorKind, &lastBody,
 			&cs.UnreadCount,
@@ -1422,7 +1427,7 @@ func (s *Store) ListAvailableTasks(ctx context.Context, query, priority string, 
 	baseQuery := `
 		SELECT n.id, n.space_id, COALESCE(n.parent_id, ''), n.kind, n.title, n.body,
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind,
-		       n.tags, n.pinned, n.due_date, n.created_at, n.updated_at, 0, 0, 0
+		       n.tags, n.pinned, n.due_date, n.created_at, n.updated_at, n.verdict, n.rating, 0, 0, 0
 		FROM nodes n
 		JOIN spaces s ON s.id = n.space_id AND s.visibility = 'public'
 		WHERE n.kind = 'task' AND n.state = 'open' AND n.assignee = ''

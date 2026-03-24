@@ -1071,6 +1071,12 @@ func (h *Handlers) handleProjects(w http.ResponseWriter, r *http.Request) {
 	ProjectsView(*space, spaces, projects, h.viewUser(r), isOwner, searchQuery).Render(r.Context(), w)
 }
 
+// GoalWithProjects pairs a goal with its child projects.
+type GoalWithProjects struct {
+	Goal     Node
+	Projects []Node
+}
+
 func (h *Handlers) handleGoals(w http.ResponseWriter, r *http.Request) {
 	space, isOwner, err := h.spaceForRead(r)
 	if errors.Is(err, ErrNotFound) {
@@ -1096,12 +1102,25 @@ func (h *Handlers) handleGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	goalsWithProjects := make([]GoalWithProjects, 0, len(goals))
+	for _, goal := range goals {
+		projects, _ := h.store.ListNodes(r.Context(), ListNodesParams{
+			SpaceID:  space.ID,
+			Kind:     KindProject,
+			ParentID: goal.ID,
+		})
+		goalsWithProjects = append(goalsWithProjects, GoalWithProjects{
+			Goal:     goal,
+			Projects: projects,
+		})
+	}
+
 	if wantsJSON(r) {
-		writeJSON(w, http.StatusOK, map[string]any{"space": space, "goals": goals})
+		writeJSON(w, http.StatusOK, map[string]any{"space": space, "goals": goalsWithProjects})
 		return
 	}
 
-	GoalsView(*space, spaces, goals, h.viewUser(r), isOwner, searchQuery).Render(r.Context(), w)
+	GoalsView(*space, spaces, goalsWithProjects, h.viewUser(r), isOwner, searchQuery).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleRoles(w http.ResponseWriter, r *http.Request) {
