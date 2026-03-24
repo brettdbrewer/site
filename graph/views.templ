@@ -101,6 +101,7 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 					<a href="/app" class="px-2.5 py-1 text-[11px] rounded-md bg-elevated text-warm-faint whitespace-nowrap">Home</a>
 					@mobileLensTab(space.Slug, "board", "Board", activeLens)
 					@mobileLensTab(space.Slug, "projects", "Projects", activeLens)
+					@mobileLensTab(space.Slug, "goals", "Goals", activeLens)
 					@mobileLensTab(space.Slug, "feed", "Feed", activeLens)
 					@mobileLensTab(space.Slug, "conversations", "Chat", activeLens)
 					@mobileLensTab(space.Slug, "threads", "Threads", activeLens)
@@ -131,6 +132,7 @@ templ appLayout(space Space, spaces []Space, activeLens string, user ViewUser) {
 							<nav class="space-y-0.5">
 								@lensLink(space.Slug, "board", "Board", activeLens, boardIcon())
 								@lensLink(space.Slug, "projects", "Projects", activeLens, projectsIcon())
+								@lensLink(space.Slug, "goals", "Goals", activeLens, goalsIcon())
 								@lensLink(space.Slug, "feed", "Feed", activeLens, feedIcon())
 								@lensLink(space.Slug, "conversations", "Chat", activeLens, conversationsIcon())
 								@lensLink(space.Slug, "threads", "Threads", activeLens, threadsIcon())
@@ -408,6 +410,12 @@ templ mobileLensTab(spaceSlug, lens, label, activeLens string) {
 templ boardIcon() {
 	<svg class="w-4 h-4 text-warm-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+	</svg>
+}
+
+templ goalsIcon() {
+	<svg class="w-4 h-4 text-warm-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"></path>
 	</svg>
 }
 
@@ -1309,6 +1317,87 @@ templ TaskCard(node Node, spaceSlug string) {
 		</div>
 	</a>
 	</div>
+}
+
+// ── Goals view ──────────────────────────────────────────────────
+
+templ GoalsView(space Space, spaces []Space, goals []Node, user ViewUser, isOwner bool, searchQuery string) {
+	@appLayout(space, spaces, "goals", user) {
+		<div class="max-w-3xl mx-auto p-6 space-y-6">
+			<div class="flex items-center justify-between">
+				<h1 class="font-display text-xl font-normal text-warm">Goals</h1>
+				if user.Name != "" && user.Name != "Anonymous" {
+					<button onclick="document.getElementById('new-goal-form').classList.toggle('hidden')"
+						class="flex items-center gap-1.5 px-3 py-1.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+						</svg>
+						New goal
+					</button>
+				}
+			</div>
+			<form action={ templ.SafeURL("/app/" + space.Slug + "/goals") } method="GET" class="flex gap-2">
+				<input type="text" name="q" value={ searchQuery } placeholder="Search goals..."
+					class="flex-1 px-3 py-1.5 bg-elevated border border-edge rounded-lg text-xs text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand"/>
+				if searchQuery != "" {
+					<a href={ templ.SafeURL("/app/" + space.Slug + "/goals") } class="text-xs text-warm-faint hover:text-brand transition-colors flex items-center px-2">Clear</a>
+				}
+			</form>
+			if user.Name != "" && user.Name != "Anonymous" {
+				<div id="new-goal-form" class="hidden">
+					<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") }
+						class="bg-surface rounded-lg border border-edge p-4 space-y-3">
+						<input type="hidden" name="op" value="intend"/>
+						<input type="hidden" name="kind" value="goal"/>
+						<input type="text" name="title" placeholder="What do you want to achieve?" required
+							class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+						<textarea name="description" placeholder="How will you measure success? (optional)" rows="2"
+							class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none text-warm placeholder-warm-faint"></textarea>
+						<div class="flex justify-end">
+							<button type="submit" class="px-4 py-1.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Set goal</button>
+						</div>
+					</form>
+				</div>
+			}
+			<div class="space-y-3">
+				for _, goal := range goals {
+					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/node/%s", space.Slug, goal.ID)) }
+						class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/40 hover:shadow-lg hover:shadow-brand/5 hover:-translate-y-0.5 transition-all duration-200">
+						<div class="flex items-center justify-between mb-1">
+							<div class="flex items-center gap-2">
+								<svg class="w-4 h-4 text-brand flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"></path>
+								</svg>
+								<h3 class="font-medium text-warm">{ goal.Title }</h3>
+							</div>
+							<span class={ "text-[10px] font-medium px-1.5 py-0.5 rounded-full", stateBgClass(goal.State) }>{ stateLabel(goal.State) }</span>
+						</div>
+						if goal.Body != "" {
+							<p class="text-sm text-warm-muted line-clamp-2 mb-2 ml-6">{ truncate(goal.Body, 150) }</p>
+						}
+						<div class="flex items-center gap-3 text-xs text-warm-faint ml-6">
+							if goal.ChildCount > 0 {
+								<span>{ fmt.Sprintf("%d/%d done", goal.ChildDone, goal.ChildCount) }</span>
+								<div class="flex-1 max-w-[120px] bg-elevated rounded-full h-1.5">
+									<div class="bg-brand rounded-full h-1.5 transition-all" style={ childProgress(goal) }></div>
+								</div>
+							} else {
+								<span>No milestones yet</span>
+							}
+							<span class="ml-auto">{ goal.CreatedAt.Format("Jan 2") }</span>
+						</div>
+					</a>
+				}
+				if len(goals) == 0 {
+					<div class="text-center py-12 space-y-3">
+						<svg class="w-12 h-12 mx-auto text-warm-faint/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"></path></svg>
+						<p class="text-warm-faint text-sm">No goals yet</p>
+						<p class="text-warm-faint/60 text-xs">Set a goal to give your work direction.</p>
+					</div>
+				}
+			</div>
+		</div>
+	}
 }
 
 // ── Projects view ───────────────────────────────────────────────

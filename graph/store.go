@@ -47,6 +47,7 @@ const (
 	KindClaim        = "claim"
 	KindProposal     = "proposal"
 	KindProject      = "project"
+	KindGoal         = "goal"
 )
 
 // Claim epistemic states.
