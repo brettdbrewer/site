@@ -419,6 +419,24 @@ func (h *Handlers) handleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Emit agent welcome message into Chat.
+	if agentID, agentName, err := h.store.GetFirstAgent(r.Context()); err == nil && agentID != "" {
+		userID := h.userID(r)
+		convo, cerr := h.store.CreateNode(r.Context(), CreateNodeParams{
+			SpaceID:    space.ID,
+			Kind:       KindConversation,
+			Title:      "Welcome",
+			Body:       "Hey, I'm your AI colleague. I can help with tasks, answer questions, and collaborate with your team.",
+			Author:     agentName,
+			AuthorID:   agentID,
+			AuthorKind: "agent",
+			Tags:       []string{userID, agentID},
+		})
+		if cerr == nil {
+			h.store.RecordOp(r.Context(), space.ID, convo.ID, agentName, agentID, "converse", nil)
+		}
+	}
+
 	if wantsJSON(r) {
 		writeJSON(w, http.StatusCreated, map[string]any{"space": space})
 		return

@@ -1071,6 +1071,18 @@ func (s *Store) SearchUsers(ctx context.Context, query string) ([]struct{ Name, 
 	return users, rows.Err()
 }
 
+// GetFirstAgent returns the id and name of the first agent user, or ("", "", nil) if none exists.
+func (s *Store) GetFirstAgent(ctx context.Context) (string, string, error) {
+	var id, name string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, name FROM users WHERE kind = 'agent' ORDER BY name LIMIT 1`,
+	).Scan(&id, &name)
+	if err == sql.ErrNoRows {
+		return "", "", nil
+	}
+	return id, name, err
+}
+
 // HasAgentParticipant checks if any of the given IDs belong to an agent user.
 // Tags now store user IDs, so we match on id.
 func (s *Store) HasAgentParticipant(ctx context.Context, ids []string) (bool, error) {
