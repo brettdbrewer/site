@@ -1318,8 +1318,105 @@ templ firstCompletionToast(spaceSlug string) {
 	</div>
 }
 
-templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string) {
+templ spaceWelcomeModal(space Space, members []SpaceMember) {
+	<div
+		id="space-welcome-modal"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+	>
+		<div class="w-full max-w-sm bg-elevated border border-edge rounded-2xl shadow-2xl shadow-black/40 p-6 mx-4">
+			<div class="flex justify-end mb-1">
+				<button
+					onclick="dismissSpaceWelcome()"
+					class="text-warm-faint hover:text-warm transition-colors"
+					aria-label="Dismiss"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+				</button>
+			</div>
+			<div class="text-center mb-5">
+				<div class="inline-flex items-center justify-center w-14 h-14 bg-brand/10 border border-brand/20 rounded-full mb-3">
+					<svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+					</svg>
+				</div>
+				<h2 class="text-base font-semibold text-warm">Welcome to { space.Name }</h2>
+				if space.Description != "" {
+					<p class="text-xs text-warm-muted mt-1">{ space.Description }</p>
+				}
+			</div>
+			<!-- Agent intro -->
+			for _, m := range members {
+				if m.Kind == "agent" {
+					<div class="bg-surface rounded-xl border border-edge px-3 py-2.5 mb-4 flex items-start gap-2.5">
+						<div class="w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+							<svg class="w-3.5 h-3.5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"></path>
+							</svg>
+						</div>
+						<div>
+							<p class="text-xs font-medium text-warm">{ m.UserName } · AI colleague</p>
+							<p class="text-xs text-warm-muted mt-0.5">I can help with tasks, answer questions, and collaborate with your team.</p>
+						</div>
+					</div>
+				}
+			}
+			<!-- Member roster -->
+			if len(members) > 0 {
+				<div class="mb-5">
+					<p class="text-[11px] font-medium text-warm-muted uppercase tracking-wide mb-2">Members</p>
+					<div class="flex flex-wrap gap-1.5">
+						for _, m := range members {
+							if m.Kind != "agent" {
+								<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-surface border border-edge rounded-full text-xs text-warm">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+									{ m.UserName }
+								</span>
+							}
+						}
+					</div>
+				</div>
+			}
+			<!-- Action buttons -->
+			<div class="flex flex-col gap-2">
+				<a
+					href={ templ.SafeURL("/app/" + space.Slug + "/board") }
+					onclick="dismissSpaceWelcome()"
+					class="w-full text-center px-3 py-2 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-xs font-medium"
+				>Create a task</a>
+				<div class="flex gap-2">
+					<a
+						href={ templ.SafeURL("/app/" + space.Slug + "/conversations") }
+						onclick="dismissSpaceWelcome()"
+						class="flex-1 text-center px-3 py-2 bg-surface hover:bg-brand/10 border border-edge hover:border-brand/30 rounded-lg transition-colors text-xs font-medium text-warm"
+					>Chat</a>
+					<a
+						href={ templ.SafeURL("/app/" + space.Slug + "/settings") }
+						onclick="dismissSpaceWelcome()"
+						class="flex-1 text-center px-3 py-2 bg-surface hover:bg-brand/10 border border-edge hover:border-brand/30 rounded-lg transition-colors text-xs font-medium text-warm"
+					>Settings</a>
+				</div>
+			</div>
+			<button
+				onclick="dismissSpaceWelcome()"
+				class="mt-3 w-full text-xs text-warm-faint hover:text-warm transition-colors py-1"
+			>Dismiss</button>
+		</div>
+	</div>
+	<script>
+	function dismissSpaceWelcome() {
+		var modal = document.getElementById('space-welcome-modal');
+		if (modal) modal.remove();
+	}
+	</script>
+}
+
+templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string, showWelcome bool, welcomeMembers []SpaceMember) {
 	@appLayout(space, spaces, "board", user) {
+		if showWelcome {
+			@spaceWelcomeModal(space, welcomeMembers)
+		}
 		if showFirstCompletionToast {
 			@firstCompletionToast(space.Slug)
 		}

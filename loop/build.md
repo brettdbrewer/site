@@ -1,36 +1,33 @@
-# Build Report — Reputation Scores
+# Build Report — Space Member Welcome Experience
 
 ## Gap
-No reputation system. Profile shows actions but no quality signal. Market cards have no author trust indicator.
+When users join an existing space via invite, they had no orientation — no welcome, no context about the space, no agent introduction, no member roster, no clear next actions.
 
 ## Changes
 
-### graph/store.go
-- **migrate()**: Added `ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_score INT NOT NULL DEFAULT 0`
-- **GetUserProfile()**: Added `ReputationScore int` field; SELECT now includes `u.reputation_score`
-- **ComputeAndUpdateReputation(ctx, userID)**: New method. Counts assignee-based completed tasks, review verdicts (approve/revise/reject) on those tasks, and endorsements. Formula: `tasks×1 + approvals×2 + revisions×0.5 + endorsements×1.5 - rejections×1`. Stores result in `users.reputation_score`.
-- **GetReputationComponents(ctx, userID)**: New method. Returns `(tasksCompleted, reviewApprovals int)` for the "X tasks completed, Y approved" profile display.
-- **GetBulkReputationByIDs(ctx, userIDs)**: New method. Bulk-fetches `reputation_score` by user ID for market card display.
-- **ListAvailableTasks scan**: Fixed pre-existing bug where `n.verdict` and `n.rating` were selected but not scanned (column count mismatch). Added `&n.Verdict` and `&n.Rating` to Scan.
+### `graph/store.go`
+- **Schema migration**: `ALTER TABLE space_members ADD COLUMN IF NOT EXISTS welcomed_at TIMESTAMPTZ` — tracks first visit per user per space
+- **`MarkWelcomed(ctx, spaceID, userID string) bool`** — sets `welcomed_at = NOW()` where it was NULL; returns true only the first time (idempotent via UPDATE + rowsAffected check)
 
-### graph/handlers.go
-- **complete op**: After marking task done, calls `ComputeAndUpdateReputation(ctx, actorID)`.
-- **review op**: After applying verdict, calls `ComputeAndUpdateReputation(ctx, node.AssigneeID)`.
+### `graph/handlers.go`
+- **`handleJoinViaInvite`**: Changed redirect from `/app/{slug}` to `/app/{slug}/board` — so the board handler can check and mark first visit immediately on join
+- **`handleBoard`**: Added welcome check — if authenticated non-owner member has `welcomed_at IS NULL`, calls `MarkWelcomed` (marks + returns true), loads member list, sets `showWelcome = true`; updated `BoardView` call with two new params
 
-### cmd/site/main.go
-- **endorse handler**: After endorse/unendorse, calls `ComputeAndUpdateReputation(ctx, targetID)`.
-- **profile handler**: Calls `GetReputationComponents` and passes `ReputationScore`, `TasksCompleted`, `ReviewApprovals` to `UserProfile`.
-- **market handler**: Collects unique `author_id` values, bulk-fetches reputation via `GetBulkReputationByIDs`, passes `AuthorReputation` to each `MarketTask`.
-
-### views/profile.templ
-- Added `ReputationScore`, `TasksCompleted`, `ReviewApprovals` to `UserProfile` struct.
-- New reputation display block (between endorse section and spaces): "Rep N" badge + "X tasks completed, Y approved". Hidden when score=0 and no completed tasks.
-
-### views/market.templ
-- Added `AuthorReputation int` to `MarketTask` struct.
-- `marketCard`: shows `rep N` badge next to author name when `AuthorReputation > 0`.
+### `graph/views.templ`
+- **`spaceWelcomeModal(space Space, members []SpaceMember)`** — new modal component:
+  - Space name + description
+  - Agent intro card (shown for any member with `kind == "agent"`)
+  - Human member roster with green dots
+  - Three action buttons: "Create a task" (primary), "Chat", "Settings"
+  - JS `dismissSpaceWelcome()` — removes modal from DOM; no localStorage needed (shown once via DB tracking)
+- **`BoardView`** — two new params: `showWelcome bool, welcomeMembers []SpaceMember`; renders `spaceWelcomeModal` before other overlays when `showWelcome` is true
 
 ## Verification
-- `templ generate`: ✓ 13 updates
-- `go.exe build -buildvcs=false ./...`: ✓ no errors
-- `go.exe test ./...`: ✓ all pass (graph: 0.544s, auth: cached)
+- `templ generate` — 13 updates, no errors
+- `go.exe build -buildvcs=false ./...` — clean
+- `go.exe test ./...` — all pass (`graph` 0.515s, `auth` cached)
+
+## Design notes
+- Welcome shows exactly once per user per space (DB-backed, not cookie/localStorage)
+- Non-owner check prevents space creators from seeing their own welcome
+- Modal renders above checklist and celebration ceremony in z-order

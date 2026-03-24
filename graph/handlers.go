@@ -572,7 +572,7 @@ func (h *Handlers) handleJoinViaInvite(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/app", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/app/"+space.Slug, http.StatusSeeOther)
+	http.Redirect(w, r, "/app/"+space.Slug+"/board", http.StatusSeeOther)
 }
 
 func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
@@ -719,7 +719,18 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 	hasCompletion := space.FirstCompletionAt != nil
 	elapsedStr := formatElapsed(time.Since(space.CreatedAt))
 
-	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion, taskCount, elapsedStr).Render(r.Context(), w)
+	// Welcome modal: show once to non-owner members on their first board visit.
+	uid := h.userID(r)
+	showWelcome := false
+	var welcomeMembers []SpaceMember
+	if uid != "anonymous" && uid != space.OwnerID && h.store.IsMember(r.Context(), space.ID, uid) {
+		showWelcome = h.store.MarkWelcomed(r.Context(), space.ID, uid)
+	}
+	if showWelcome {
+		welcomeMembers, _ = h.store.ListMembers(r.Context(), space.ID, 10)
+	}
+
+	BoardView(*space, spaces, columns, h.viewUser(r), isOwner, agents, q, assigneeFilter, projects, projectFilter, showFirstCompletionToast, showChecklist, hasTask, hasAgentTask, hasCompletion, taskCount, elapsedStr, showWelcome, welcomeMembers).Render(r.Context(), w)
 }
 
 func formatElapsed(d time.Duration) string {

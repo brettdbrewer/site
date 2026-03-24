@@ -375,6 +375,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_score INT NOT NULL DEFAULT 0;
+ALTER TABLE space_members ADD COLUMN IF NOT EXISTS welcomed_at TIMESTAMPTZ;
 `)
 	return err
 }
@@ -1328,6 +1329,20 @@ func (s *Store) IsMember(ctx context.Context, spaceID, userID string) bool {
 		`SELECT EXISTS(SELECT 1 FROM space_members WHERE space_id = $1 AND user_id = $2)`,
 		spaceID, userID).Scan(&exists)
 	return exists
+}
+
+// MarkWelcomed sets welcomed_at for a member if not already set.
+// Returns true only on the first call (when welcomed_at was NULL).
+func (s *Store) MarkWelcomed(ctx context.Context, spaceID, userID string) bool {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE space_members SET welcomed_at = NOW()
+		 WHERE space_id = $1 AND user_id = $2 AND welcomed_at IS NULL`,
+		spaceID, userID)
+	if err != nil {
+		return false
+	}
+	rows, _ := res.RowsAffected()
+	return rows > 0
 }
 
 // SpaceMember holds a member's info for display.
