@@ -589,6 +589,8 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 	spaces, _ := h.store.ListSpaces(r.Context(), h.userID(r))
 
 	searchQuery := r.URL.Query().Get("q")
+	feedTab := r.URL.Query().Get("tab") // "following" or "" (all)
+
 	posts, err := h.store.ListNodes(r.Context(), ListNodesParams{
 		SpaceID:  space.ID,
 		Kind:     KindPost,
@@ -600,6 +602,29 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Filter by Following tab: show only posts by followed users + reposted by followed users.
+	if feedTab == "following" {
+		uid := h.userID(r)
+		followedIDs := h.store.ListFollowedIDs(r.Context(), uid)
+		followSet := make(map[string]bool, len(followedIDs))
+		for _, id := range followedIDs {
+			followSet[id] = true
+		}
+		// Also include posts reposted by followed users.
+		repostedNodeIDs := h.store.ListRepostedNodeIDs(r.Context(), followedIDs, 100)
+		repostSet := make(map[string]bool, len(repostedNodeIDs))
+		for _, id := range repostedNodeIDs {
+			repostSet[id] = true
+		}
+		var filtered []Node
+		for _, p := range posts {
+			if followSet[p.AuthorID] || repostSet[p.ID] {
+				filtered = append(filtered, p)
+			}
+		}
+		posts = filtered
+	}
+
 	if wantsJSON(r) {
 		writeJSON(w, http.StatusOK, map[string]any{"space": space, "nodes": posts})
 		return
@@ -607,7 +632,7 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 
 	agents, _ := h.store.ListAgentNames(r.Context())
 
-	// Load endorsement data for all posts.
+	// Load endorsement + repost data for all posts.
 	var postIDs []string
 	for _, p := range posts {
 		postIDs = append(postIDs, p.ID)
@@ -623,7 +648,7 @@ func (h *Handlers) handleFeed(w http.ResponseWriter, r *http.Request) {
 		quotePost, _ = h.store.GetNode(r.Context(), qid)
 	}
 
-	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, endorseCounts, userEndorsed, repostCounts, userReposted, quotePost).Render(r.Context(), w)
+	FeedView(*space, spaces, posts, h.viewUser(r), isOwner, len(agents) > 0, searchQuery, feedTab, endorseCounts, userEndorsed, repostCounts, userReposted, quotePost).Render(r.Context(), w)
 }
 
 func (h *Handlers) handleThreads(w http.ResponseWriter, r *http.Request) {

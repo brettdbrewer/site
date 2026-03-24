@@ -1927,6 +1927,52 @@ func (s *Store) CountFollowing(ctx context.Context, userID string) int {
 	return count
 }
 
+// ListFollowedIDs returns the IDs of users that userID follows.
+func (s *Store) ListFollowedIDs(ctx context.Context, userID string) []string {
+	if userID == "" {
+		return nil
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT followed_id FROM follows WHERE follower_id = $1`, userID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// ListRepostedNodeIDs returns node IDs reposted by any of the given user IDs, limited.
+func (s *Store) ListRepostedNodeIDs(ctx context.Context, userIDs []string, limit int) []string {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT node_id FROM reposts WHERE user_id = ANY($1) ORDER BY node_id LIMIT $2`,
+		pq.Array(userIDs), limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Reposts (Layer 3 — Social / Propagate)
 // ────────────────────────────────────────────────────────────────────
