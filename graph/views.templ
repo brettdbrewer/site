@@ -1437,6 +1437,14 @@ templ TaskCard(node Node, spaceSlug string) {
 					}
 				}
 			</div>
+			if node.AssigneeKind == "agent" && node.State != StateDone {
+				<span class="flex items-center gap-1 text-[9px] text-violet-400/80 font-medium">
+					Thinking
+					<span class="w-1 h-1 rounded-full bg-violet-400/60 animate-bounce" style="animation-delay: 0s"></span>
+					<span class="w-1 h-1 rounded-full bg-violet-400/60 animate-bounce" style="animation-delay: 0.15s"></span>
+					<span class="w-1 h-1 rounded-full bg-violet-400/60 animate-bounce" style="animation-delay: 0.3s"></span>
+				</span>
+			}
 			if node.BlockerCount > 0 {
 				<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400" title={ fmt.Sprintf("%d blocker(s)", node.BlockerCount) }>
 					{ fmt.Sprintf("%d blocked", node.BlockerCount) }

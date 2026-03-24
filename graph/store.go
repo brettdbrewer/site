@@ -106,6 +106,7 @@ type Node struct {
 	Priority     string     `json:"priority"`
 	Assignee     string     `json:"assignee"`
 	AssigneeID   string     `json:"assignee_id"`              // user ID — source of truth for assignment
+	AssigneeKind string     `json:"assignee_kind"`            // "human" or "agent", resolved from users table
 	Author       string     `json:"author"`
 	AuthorID     string     `json:"author_id"`               // user ID — source of truth for identity
 	AuthorKind   string     `json:"author_kind"`              // "human" or "agent"
@@ -641,8 +642,11 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 		       n.quote_of_id,
 		       COALESCE((SELECT q.author FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT q.title FROM nodes q WHERE q.id = n.quote_of_id), ''),
-		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), '')
-		FROM nodes n WHERE n.id = $1`, id,
+		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), ''),
+		       COALESCE(au.kind, '')
+		FROM nodes n
+		LEFT JOIN users au ON au.id = n.assignee_id
+		WHERE n.id = $1`, id,
 	).Scan(
 		&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
 		&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind, pq.Array(&n.Tags), &n.Pinned, &dueDate,
@@ -650,6 +654,7 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 		&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 		&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 		&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
+		&n.AssigneeKind,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -683,8 +688,10 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 		       n.quote_of_id,
 		       COALESCE((SELECT q.author FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT q.title FROM nodes q WHERE q.id = n.quote_of_id), ''),
-		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), '')
+		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), ''),
+		       COALESCE(au.kind, '')
 		FROM nodes n
+		LEFT JOIN users au ON au.id = n.assignee_id
 		WHERE n.space_id = $1`
 
 	args := []any{p.SpaceID}
@@ -749,6 +756,7 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 			&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 			&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
+			&n.AssigneeKind,
 		); err != nil {
 			return nil, fmt.Errorf("scan node: %w", err)
 		}

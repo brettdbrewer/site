@@ -1,20 +1,21 @@
 # Build Report
 
 ## Gap
-Task creation form shows a plain text "Assign to..." input. No default. Users miss the aha moment of agent-assigned task → thinking → response.
+Agent-assigned tasks showed no visual feedback. Users couldn't tell the agent was working — missing the "aha moment" of proof-of-life.
 
 ## Changes
 
-### `graph/views.templ` — `newTaskInline` template
-Replaced the plain assignee text input + agent quick-buttons section with a pre-selected checkbox row:
+### `graph/store.go`
+- Added `AssigneeKind string` field to `Node` struct (resolved from users table, "human" or "agent")
+- Updated `GetNode` query: `LEFT JOIN users au ON au.id = n.assignee_id`, added `COALESCE(au.kind, '')` to SELECT, added `&n.AssigneeKind` to Scan
+- Updated `ListNodes` query: same JOIN and extra column, `&n.AssigneeKind` to Scan
 
-- When agents are present (the common case): renders a soft branded row with checkbox (pre-checked) "Let your AI colleague help?" + agent name badge (or select if multiple agents). A hidden `<input name="assignee">` carries the value.
-- When no agents: falls back to the plain text input as before.
-- Added two new scripts: `toggleAgentAssign(defaultAgent)` (checkbox toggle handler) and `pickAgent()` (multi-agent select handler).
-
-No changes to `handlers.go` — the `intend` handler already reads `r.FormValue("assignee")` and triggers Mind on agent assignees.
+### `graph/views.templ` — `TaskCard` template
+- Added compact "Thinking" indicator: shown when `node.AssigneeKind == "agent" && node.State != StateDone`
+- Three animated bouncing dots in violet (`bg-violet-400/60 animate-bounce`) matching the chat.templ thinking indicator palette
+- Placed in the bottom metadata row alongside blocker badge and state select
 
 ## Verification
-- `templ generate` — 13 files updated, no errors
-- `go build -buildvcs=false ./...` — clean
-- `go test ./...` — all pass
+- `templ generate` ✓ (13 updates)
+- `go build -buildvcs=false ./...` ✓
+- `go test ./...` ✓ (graph 0.539s, auth cached)
