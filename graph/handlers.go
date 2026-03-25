@@ -2107,17 +2107,16 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		// Route agent conversations (identified by role:* participant tags) to the agents space.
+		// Route agent conversations to the agents space.
+		// Use identity system (users table, kind='agent') — not content heuristics.
 		targetSpace := space
-		hasRoleTag := false
-		for _, p := range participants {
-			if strings.HasPrefix(p, "role:") {
-				hasRoleTag = true
-				break
-			}
-		}
-		if hasRoleTag {
-			if agentsSpace, _ := h.store.GetSpaceBySlug(ctx, AgentsSpaceSlug); agentsSpace != nil {
+		if hasAgent, err := h.store.HasAgentParticipant(ctx, participants); err != nil {
+			log.Printf("converse: check agent participants: %v", err)
+		} else if hasAgent {
+			agentsSpace, err := h.store.GetSpaceBySlug(ctx, AgentsSpaceSlug)
+			if err != nil {
+				log.Printf("converse: get agents space %q: %v", AgentsSpaceSlug, err)
+			} else if agentsSpace != nil {
 				targetSpace = agentsSpace
 			}
 		}
