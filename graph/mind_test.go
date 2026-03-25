@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -273,6 +274,75 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// TestBuildSystemPromptPersonaRouting verifies that buildSystemPrompt uses the
+// persona prompt when a role tag or agent ID is present in the conversation.
+func TestBuildSystemPromptPersonaRouting(t *testing.T) {
+	db, store := testDB(t)
+	ctx := context.Background()
+	mind := NewMind(db, store, "fake-token")
+
+	const personaSlug = "test-persona-routing"
+	const personaPrompt = "YOU ARE THE TEST PERSONA"
+
+	// Seed a test persona.
+	if err := store.UpsertAgentPersona(ctx, AgentPersona{
+		Name:    personaSlug,
+		Display: "Test Persona",
+		Prompt:  personaPrompt,
+		Model:   "sonnet",
+		Active:  true,
+	}); err != nil {
+		t.Fatalf("upsert persona: %v", err)
+	}
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM agent_personas WHERE name = $1`, personaSlug)
+	})
+
+	t.Run("role_tag_loads_persona", func(t *testing.T) {
+		convo := &Node{
+			Title: "Test Convo",
+			Tags:  []string{"role:" + personaSlug, "some-user-id"},
+		}
+		prompt := mind.buildSystemPrompt(convo, "some-agent-id")
+		if !strings.Contains(prompt, personaPrompt) {
+			t.Errorf("prompt does not contain persona text\ngot: %s", prompt[:min(len(prompt), 200)])
+		}
+	})
+
+	t.Run("no_role_tag_uses_agent_id", func(t *testing.T) {
+		// Create an agent user whose name matches the persona slug.
+		agentID := "persona-routing-agent-id"
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID)
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+			agentID, "agent:"+personaSlug, personaSlug+"@test.lovyou.ai", personaSlug)
+		if err != nil {
+			t.Fatalf("create agent user: %v", err)
+		}
+		t.Cleanup(func() { db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID) })
+
+		convo := &Node{
+			Title: "Test Convo",
+			Tags:  []string{"some-user-id", agentID},
+		}
+		prompt := mind.buildSystemPrompt(convo, agentID)
+		if !strings.Contains(prompt, personaPrompt) {
+			t.Errorf("prompt does not contain persona text\ngot: %s", prompt[:min(len(prompt), 200)])
+		}
+	})
+
+	t.Run("no_agent_falls_back_to_mind_soul", func(t *testing.T) {
+		convo := &Node{
+			Title: "Test Convo",
+			Tags:  []string{"user-a", "user-b"},
+		}
+		prompt := mind.buildSystemPrompt(convo, "some-agent-id")
+		if !strings.Contains(prompt, "SOUL") {
+			t.Errorf("expected mindSoul fallback, got: %s", prompt[:min(len(prompt), 200)])
+		}
+	})
 }
 
 // TestMindE2E runs a full end-to-end test: human message → Mind replies.
