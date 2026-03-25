@@ -1,44 +1,35 @@
-# Build Report — Fix: goal progress dashboard security and reliability
+# Build Report — Fix: aha_agent toast fires for all assignees
 
-## What changed
+## Gap
+`aha_agent=1` was appended to the board redirect URL for any non-empty `assigneeID`, regardless of whether the assignee is a human or an agent. This caused the "Your AI colleague is on it" toast to appear when assigning tasks to human team members — factually incorrect.
 
-**File:** `graph/handlers.go` — `handleGoalDetail` function
+## Change
 
-### Fix 1: Cross-space authorization bypass (security)
+**File:** `graph/handlers.go` (intend op redirect, ~line 1792)
 
-Added space membership check after fetching the goal node:
-
+**Before:**
 ```go
-if goal.SpaceID != space.ID {
-    http.NotFound(w, r)
-    return
+boardURL := "/app/" + space.Slug + "/board"
+if assigneeID != "" {
+    boardURL += "?aha_agent=1"
 }
 ```
 
-Without this, a request to `/app/space-a/goals/{node-id-from-space-b}` would succeed and expose goal data across space boundaries. The `ListNodes` calls below already used `SpaceID: space.ID` correctly — only the `GetNode` fetch was unguarded.
-
-### Fix 2: Silent error swallowing
-
-Changed both `ListNodes` calls from ignoring errors to returning HTTP 500:
-
+**After:**
 ```go
-projects, err := h.store.ListNodes(...)
-if err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
-
-directTasks, err := h.store.ListNodes(...)
-if err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
+boardURL := "/app/" + space.Slug + "/board"
+if assigneeID != "" {
+    if isAgent, _ := h.store.HasAgentParticipant(ctx, []string{assigneeID}); isAgent {
+        boardURL += "?aha_agent=1"
+    }
+}
 ```
 
-Previously a store failure would produce a valid-looking page with 0 tasks and 0% progress — a false success.
+Reuses existing `HasAgentParticipant` — no new methods added. The `OnTaskAssigned` Mind trigger already correctly handled non-agent assignees (it queries the DB for `kind = 'agent'` and returns early if not found), so no change was needed there.
 
-### Fix 3: Unbounded queries (invariant 13)
-
-Added `Limit: 200` to both `ListNodes` calls. The store default is 500; making the limit explicit and reasonable prevents a goal with thousands of tasks from returning all of them.
-
-### Non-fix: Assignee rendering
-
-The critic flagged `{ task.Assignee }` as rendering a raw ID. In this codebase, `Assignee` stores the display name; `AssigneeID` is the ID. The render is correct and consistent with the rest of the codebase (board list view, task cards, node detail). No change needed.
+## Issue 2 (persona routing mismatch)
+The Critic flagged that the commit message "Implement agent persona routing in Mind" didn't match the diff. Reviewing `mind.go:buildSystemPrompt` (lines 404–470), persona routing IS implemented: role-tagged conversations load persona prompts from the DB via `GetAgentPersona`; non-role conversations fall back to `GetAgentPersonaForConversation`. The Critic was working without repo access, so the diff they saw was incomplete. No code change needed.
 
 ## Verification
-- `go.exe build -buildvcs=false ./...`: clean
-- `go.exe test ./...`: all pass (graph: 0.535s)
+- `go.exe build -buildvcs=false ./...` — clean
+- `go.exe test ./...` — all pass (graph: 0.537s)

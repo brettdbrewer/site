@@ -1790,7 +1790,9 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		boardURL := "/app/" + space.Slug + "/board"
 		if assigneeID != "" {
-			boardURL += "?aha_agent=1"
+			if isAgent, _ := h.store.HasAgentParticipant(ctx, []string{assigneeID}); isAgent {
+				boardURL += "?aha_agent=1"
+			}
 		}
 		http.Redirect(w, r, boardURL, http.StatusSeeOther)
 
