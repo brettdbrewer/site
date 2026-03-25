@@ -1,0 +1,53 @@
+package views
+
+// AgentProfileData holds data for the public agent profile page.
+type AgentProfileData struct {
+	Name        string // slug, e.g. "philosopher"
+	Display     string // display name, e.g. "Philosopher"
+	Description string
+	Category    string
+	PromptHTML  string // pre-rendered markdown HTML
+}
+
+templ AgentProfilePage(p AgentProfileData) {
+	@Layout(p.Display, p.Description) {
+		<div class="space-y-8">
+			<!-- Agent header -->
+			<div class="reveal flex items-start gap-5" style="--d:0">
+				<div class="w-16 h-16 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+					<span class="text-2xl font-bold text-violet-400">{ agentInitial(p.Display) }</span>
+				</div>
+				<div class="flex-1 min-w-0 pt-1">
+					<div class="flex items-center gap-2 flex-wrap">
+						<h1 class="font-display text-2xl font-light text-warm">{ p.Display }</h1>
+						<span class="text-xs px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">agent</span>
+						<span class={ "text-[10px] px-1.5 py-0.5 rounded-full", agentCategoryClass(p.Category) }>
+							{ p.Category }
+						</span>
+					</div>
+					if p.Description != "" {
+						<p class="text-warm-muted mt-1.5">{ p.Description }</p>
+					}
+				</div>
+			</div>
+			<!-- Chat action -->
+			<div class="reveal" style="--d:1">
+				<form method="POST" action={ templ.SafeURL("/agents/" + p.Name + "/chat") }>
+					<button type="submit" class="px-5 py-2.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors rounded-lg text-sm font-medium">
+						Chat with { p.Display }
+					</button>
+				</form>
+			</div>
+			<!-- Role description -->
+			if p.PromptHTML != "" {
+				<div class="reveal-scroll prose">
+					@templ.Raw(p.PromptHTML)
+				</div>
+			}
+			<!-- Back -->
+			<div class="reveal-scroll pt-4 border-t border-edge">
+				<a href="/agents" class="text-sm text-warm-faint hover:text-brand transition-colors">← All agents</a>
+			</div>
+		</div>
+	}
+}

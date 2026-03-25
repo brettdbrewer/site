@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"flag"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	"github.com/yuin/goldmark"
 
 	"github.com/lovyou-ai/site/auth"
 	"github.com/lovyou-ai/site/content"
@@ -412,6 +414,32 @@ func main() {
 			}
 		}
 		views.AgentsPage(categories).Render(r.Context(), w)
+	})
+
+	// Agent profile page — public view of a single agent persona.
+	mux.HandleFunc("GET /agents/{name}", func(w http.ResponseWriter, r *http.Request) {
+		personaName := r.PathValue("name")
+		if graphStore == nil {
+			http.NotFound(w, r)
+			return
+		}
+		persona := graphStore.GetAgentPersona(r.Context(), personaName)
+		if persona == nil {
+			http.NotFound(w, r)
+			return
+		}
+		var buf bytes.Buffer
+		agentMD := goldmark.New()
+		if err := agentMD.Convert([]byte(persona.Prompt), &buf); err != nil {
+			buf.WriteString("<p>" + persona.Description + "</p>")
+		}
+		views.AgentProfilePage(views.AgentProfileData{
+			Name:        persona.Name,
+			Display:     persona.Display,
+			Description: persona.Description,
+			Category:    persona.Category,
+			PromptHTML:  buf.String(),
+		}).Render(r.Context(), w)
 	})
 
 	// Chat with agent — creates a conversation in the demo space with the persona's role tag.
