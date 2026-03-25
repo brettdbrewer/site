@@ -1195,18 +1195,63 @@ templ gettingStartedChecklist(spaceSlug string, hasTask bool, hasAgentTask bool,
 templ inviteTeammatesCard(spaceSlug string, inviteToken string) {
 	<div
 		id="invite-teammates-card"
-		class="mx-4 md:mx-6 mt-4 p-4 bg-elevated border border-brand/20 rounded-xl flex items-start gap-4"
+		class="mx-4 md:mx-6 mt-4 bg-elevated border border-brand/20 rounded-xl overflow-hidden"
 	>
-		<div class="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-brand/10 border border-brand/20 rounded-full">
-			<svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 110-8 4 4 0 010 8zm6 4a2 2 0 100-4 2 2 0 000 4zM3 12a2 2 0 100-4 2 2 0 000 4z"></path>
-			</svg>
+		<!-- Header row -->
+		<div class="flex items-start gap-3 px-4 pt-4 pb-3">
+			<div class="flex-shrink-0 flex items-center justify-center w-9 h-9 bg-brand/10 border border-brand/20 rounded-full mt-0.5">
+				<svg class="w-4.5 h-4.5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 110-8 4 4 0 010 8zm6 4a2 2 0 100-4 2 2 0 000 4zM3 12a2 2 0 100-4 2 2 0 000 4z"></path>
+				</svg>
+			</div>
+			<div class="flex-1 min-w-0">
+				<h3 class="text-sm font-semibold text-warm">Invite teammates</h3>
+				<p class="text-xs text-warm-muted mt-0.5">Build together — your agent is already waiting for them.</p>
+			</div>
+			<button
+				onclick="dismissInviteCard()"
+				class="flex-shrink-0 text-warm-faint hover:text-warm transition-colors mt-0.5"
+				aria-label="Dismiss"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
 		</div>
-		<div class="flex-1 min-w-0">
-			<h3 class="text-sm font-semibold text-warm">Start collaborating</h3>
-			<p class="text-xs text-warm-muted mt-0.5">Invite your team to build together with your AI peer.</p>
+		<!-- What your team will see -->
+		<div class="mx-4 mb-3 bg-surface border border-edge rounded-lg px-3 py-2.5">
+			<p class="text-[11px] font-medium text-warm-muted uppercase tracking-wide mb-2">What your team will see</p>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center gap-2.5">
+					<div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center">
+						<svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+						</svg>
+					</div>
+					<p class="text-xs text-warm">Shared tasks and projects on this board</p>
+				</div>
+				<div class="flex items-center gap-2.5">
+					<div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center">
+						<svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"></path>
+						</svg>
+					</div>
+					<p class="text-xs text-warm">Your AI colleague, ready to help them</p>
+				</div>
+				<div class="flex items-center gap-2.5">
+					<div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center">
+						<svg class="w-3 h-3 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+						</svg>
+					</div>
+					<p class="text-xs text-warm">Chat, conversation threads, and real-time context</p>
+				</div>
+			</div>
+		</div>
+		<!-- Invite link -->
+		<div class="px-4 pb-4">
 			if inviteToken != "" {
-				<div class="mt-3 flex items-center gap-2">
+				<div class="flex items-center gap-2">
 					<input
 						id="invite-link-input"
 						type="text"
@@ -1218,23 +1263,14 @@ templ inviteTeammatesCard(spaceSlug string, inviteToken string) {
 						onclick="copyInviteLink()"
 						id="invite-copy-btn"
 						class="flex-shrink-0 px-3 py-1.5 bg-brand text-void text-xs font-medium rounded-lg hover:bg-brand-dark transition-colors"
-					>Copy</button>
+					>Copy link</button>
 				</div>
 			} else {
-				<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/invite") } class="mt-3">
-					<button type="submit" class="px-3 py-1.5 bg-brand text-void text-xs font-medium rounded-lg hover:bg-brand-dark transition-colors">Generate invite link</button>
+				<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/invite") }>
+					<button type="submit" class="w-full px-3 py-1.5 bg-brand text-void text-xs font-medium rounded-lg hover:bg-brand-dark transition-colors">Generate invite link</button>
 				</form>
 			}
 		</div>
-		<button
-			onclick="dismissInviteCard()"
-			class="flex-shrink-0 text-warm-faint hover:text-warm transition-colors"
-			aria-label="Dismiss"
-		>
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-			</svg>
-		</button>
 	</div>
 	<script>
 	function copyInviteLink() {
@@ -1243,12 +1279,12 @@ templ inviteTeammatesCard(spaceSlug string, inviteToken string) {
 		if (!input || !btn) return;
 		navigator.clipboard.writeText(input.value).then(function() {
 			btn.textContent = 'Copied!';
-			setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+			setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
 		}).catch(function() {
 			input.select();
 			document.execCommand('copy');
 			btn.textContent = 'Copied!';
-			setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+			setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
 		});
 	}
 	function dismissInviteCard() {
