@@ -1531,7 +1531,7 @@ templ spaceWelcomeModal(space Space, members []SpaceMember) {
 	</script>
 }
 
-templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string, showWelcome bool, welcomeMembers []SpaceMember, showInviteCard bool, inviteToken string) {
+templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUser, isOwner bool, agents []AgentPersona, searchQuery string, assigneeFilter string, projects []Node, projectFilter string, showFirstCompletionToast bool, showChecklist bool, hasTask bool, hasAgentTask bool, hasCompletion bool, taskCount int, elapsedStr string, showWelcome bool, welcomeMembers []SpaceMember, showInviteCard bool, inviteToken string) {
 	@appLayout(space, spaces, "board", user) {
 		if showWelcome {
 			@spaceWelcomeModal(space, welcomeMembers)
@@ -1596,7 +1596,7 @@ templ BoardView(space Space, spaces []Space, columns []BoardColumn, user ViewUse
 					onchange="this.form.submit()">
 					<option value="">All assignees</option>
 					for _, a := range agents {
-						<option value={ a } selected?={ a == assigneeFilter }>{ a }</option>
+						<option value={ a.Name } selected?={ a.Name == assigneeFilter }>{ a.Display }</option>
 					}
 				</select>
 				if searchQuery != "" || assigneeFilter != "" {
@@ -1657,7 +1657,7 @@ templ ahaAgentToast() {
 	</script>
 }
 
-templ boardOnboarding(spaceSlug string, agents []string) {
+templ boardOnboarding(spaceSlug string, agents []AgentPersona) {
 	<div class="flex-1 flex items-center justify-center py-12">
 		<div class="max-w-sm w-full space-y-5">
 			<div class="text-center">
@@ -1668,7 +1668,7 @@ templ boardOnboarding(spaceSlug string, agents []string) {
 				</div>
 				<h2 class="text-xl font-light text-warm">Create your first task</h2>
 				if len(agents) > 0 {
-					<p class="text-sm text-warm-muted mt-1">{ agents[0] } will help you break it down and get it done.</p>
+					<p class="text-sm text-warm-muted mt-1">{ agents[0].Display } will help you break it down and get it done.</p>
 				} else {
 					<p class="text-sm text-warm-muted mt-1">Describe what needs doing. Track it here.</p>
 				}
@@ -1681,18 +1681,18 @@ templ boardOnboarding(spaceSlug string, agents []string) {
 					<div class="flex items-center gap-2 px-2 py-1.5 bg-brand/5 border border-brand/20 rounded-md">
 						<input type="checkbox" id="assign-to-agent" checked
 							class="w-3.5 h-3.5 accent-brand cursor-pointer flex-shrink-0"
-							onchange={ toggleAgentAssign(agents[0]) }/>
+							onchange={ toggleAgentAssign(agents[0].Name) }/>
 						<label for="assign-to-agent" class="text-xs text-warm-secondary cursor-pointer flex-1 select-none">💡 Assign to our AI colleague?</label>
 						if len(agents) == 1 {
-							<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">{ agents[0] }</span>
+							<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">{ agents[0].Display }</span>
 						} else {
 							<select id="agent-select" class="text-[10px] px-1.5 py-0.5 bg-elevated border border-violet-500/20 rounded-full text-violet-400 focus:outline-none" onchange={ pickAgent() }>
 								for _, agent := range agents {
-									<option value={ agent }>{ agent }</option>
+									<option value={ agent.Name }>{ agent.Display }</option>
 								}
 							</select>
 						}
-						<input type="text" name="assignee" id="task-assignee" value={ agents[0] } class="hidden"/>
+						<input type="text" name="assignee" id="task-assignee" value={ agents[0].Name } class="hidden"/>
 					</div>
 				}
 				<div class="flex justify-end">
@@ -1701,14 +1701,14 @@ templ boardOnboarding(spaceSlug string, agents []string) {
 			</form>
 			if len(agents) > 0 {
 				<p class="text-center text-xs text-warm-faint">
-					or <a href={ templ.SafeURL("/app/" + spaceSlug + "/conversations") } class="text-brand hover:underline">chat with { agents[0] }</a> to get started conversationally
+					or <a href={ templ.SafeURL("/app/" + spaceSlug + "/conversations") } class="text-brand hover:underline">chat with { agents[0].Display }</a> to get started conversationally
 				</p>
 			}
 		</div>
 	</div>
 }
 
-templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool, agents []string) {
+templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool, agents []AgentPersona) {
 	<div class="w-[280px] flex-shrink-0 flex flex-col">
 		<div class="flex items-center gap-2 mb-3 px-2">
 			<span
@@ -1739,7 +1739,7 @@ templ boardColumn(spaceSlug string, col BoardColumn, canWrite bool, agents []str
 	</div>
 }
 
-templ newTaskInline(spaceSlug string, agents []string) {
+templ newTaskInline(spaceSlug string, agents []AgentPersona) {
 	<div id="new-task-form" class="hidden mb-2">
 		<form
 			hx-post={ "/app/" + spaceSlug + "/op" }
@@ -1755,23 +1755,16 @@ templ newTaskInline(spaceSlug string, agents []string) {
 				class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint resize-none"></textarea>
 			if len(agents) > 0 {
 				<div class="flex items-center gap-2 px-2 py-1.5 bg-brand/5 border border-brand/20 rounded-md">
-					<input type="checkbox" id="assign-to-agent" checked
-						class="w-3.5 h-3.5 accent-brand cursor-pointer flex-shrink-0"
-						onchange={ toggleAgentAssign(agents[0]) }/>
-					<label for="assign-to-agent" class="text-xs text-warm-secondary cursor-pointer flex-1 select-none">Let your AI colleague help?</label>
-					if len(agents) == 1 {
-						<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">{ agents[0] }</span>
-					} else {
-						<select id="agent-select" class="text-[10px] px-1.5 py-0.5 bg-elevated border border-violet-500/20 rounded-full text-violet-400 focus:outline-none" onchange={ pickAgent() }>
-							for _, agent := range agents {
-								<option value={ agent }>{ agent }</option>
-							}
-						</select>
-					}
-					<input type="text" name="assignee" id="task-assignee" value={ agents[0] } class="hidden"/>
+					<label class="text-xs text-warm-secondary flex-shrink-0">Assign to:</label>
+					<select id="agent-select" name="assignee" class="text-xs px-2 py-1 bg-elevated border border-violet-500/20 rounded-md text-violet-400 focus:outline-none flex-1">
+						<option value="">None</option>
+						for _, agent := range agents {
+							<option value={ agent.Name } selected?={ len(agents) > 0 && agent.Name == agents[0].Name }>{ agent.Display }</option>
+						}
+					</select>
 				</div>
 			} else {
-				<input type="text" name="assignee" id="task-assignee" placeholder="Assign to..."
+				<input type="text" name="assignee" placeholder="Assign to..."
 					class="w-full text-sm px-2 py-1.5 bg-elevated border border-edge rounded-md focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
 			}
 			<div class="flex items-center gap-2">
@@ -2552,7 +2545,7 @@ templ PoliciesView(space Space, spaces []Space, policies []Node, user ViewUser, 
 
 // ── List view (table) ───────────────────────────────────────────
 
-templ ListView(space Space, spaces []Space, tasks []Node, user ViewUser, isOwner bool, agents []string, searchQuery string, assigneeFilter string, sortBy string, projects []Node, projectFilter string) {
+templ ListView(space Space, spaces []Space, tasks []Node, user ViewUser, isOwner bool, agents []AgentPersona, searchQuery string, assigneeFilter string, sortBy string, projects []Node, projectFilter string) {
 	@appLayout(space, spaces, "board", user) {
 		<div class="p-4 md:p-6 h-full flex flex-col">
 			<div class="flex items-center justify-between mb-4 gap-2">

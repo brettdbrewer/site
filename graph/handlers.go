@@ -686,7 +686,7 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents, _ := h.store.ListAgentNames(r.Context())
+	agents, _ := h.store.ListAgentPersonas(r.Context())
 	viewMode := r.URL.Query().Get("view") // "list" or "" (board)
 	sortBy := r.URL.Query().Get("sort")   // "priority", "due", "created", "state", "assignee"
 
