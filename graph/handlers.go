@@ -1542,6 +1542,7 @@ func (h *Handlers) handleDocuments(w http.ResponseWriter, r *http.Request) {
 		Kind:     KindDocument,
 		ParentID: "root",
 		Query:    searchQuery,
+		Limit:    50,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1629,6 +1630,7 @@ func (h *Handlers) handleQuestions(w http.ResponseWriter, r *http.Request) {
 		Kind:     KindQuestion,
 		ParentID: "root",
 		Query:    searchQuery,
+		Limit:    50,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
