@@ -1,20 +1,20 @@
-# Build: Fix persona-aware routing — invariant 11 (identity)
+# Build: Fix t.Skipf → t.Fatalf in TestBuildSystemPromptInjectsMemories
 
 ## Gap
-`GetAgentPersonaForConversation` joined `users.name → agent_personas.name` to resolve a persona for an agent participant. `users.name` is the display name — mutable and semantically distinct from the persona slug. This violates invariant 11 (join on IDs/stable identifiers, not mutable names).
+`TestBuildSystemPromptInjectsMemories` used `t.Skipf` after a live DB connection was already established. A schema failure at that point is real breakage, not a missing environment — silently skipping gives false green in CI and violates invariant 12 (VERIFIED).
 
-## Changes
+## Change
 
-### `graph/store.go`
-- Schema: `ALTER TABLE users ADD COLUMN IF NOT EXISTS persona_name TEXT` — explicit stable slug column, distinct from display name
-- `GetAgentPersonaForConversation`: now selects `persona_name` (not `name`) and gates on `persona_name IS NOT NULL`, so old agent rows without the column set don't match spuriously
+**`graph/memory_test.go:92`**
+```go
+// Before
+t.Skipf("agent_personas insert failed (schema may differ): %v", err)
 
-### `auth/auth.go`
-- `ensureAgentUser`: INSERT and ON CONFLICT now also set `persona_name = agentName` (the slug — stable, never the mutable display name)
-
-### `graph/mind_test.go`
-- `no_role_tag_uses_agent_id` test now inserts agent user with `persona_name = personaSlug`, matching the new lookup path
+// After
+t.Fatalf("agent_personas insert failed: %v", err)
+```
 
 ## Verification
-- `go.exe build -buildvcs=false ./...` — clean
-- `go.exe test -short ./...` — all pass (auth, graph)
+
+- `go.exe build -buildvcs=false ./...` — passes clean
+- `go.exe test ./graph/... -run TestBuildSystemPromptInjectsMemories -v` — skips at `testDB(t)` when `DATABASE_URL` is absent (correct behavior; `testDB` owns the env check), does not skip at the schema insert

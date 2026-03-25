@@ -89,7 +89,7 @@ func TestBuildSystemPromptInjectsMemories(t *testing.T) {
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO agent_personas (id, role, prompt, created_at) VALUES ($1, $2, $3, NOW())`,
 		newID(), persona, "You are a helpful assistant."); err != nil {
-		t.Skipf("agent_personas insert failed (schema may differ): %v", err)
+		t.Fatalf("agent_personas insert failed: %v", err)
 	}
 
 	// Store a memory for this persona about the human.
