@@ -81,6 +81,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /app/{slug}/conversations", h.readWrap(h.handleConversations))
 	mux.Handle("GET /app/{slug}/people", h.readWrap(h.handlePeople))
 	mux.Handle("GET /app/{slug}/agents", h.readWrap(h.handleAgents))
+	mux.Handle("POST /app/{slug}/agents/{name}/chat", h.writeWrap(h.handleAgentChat))
 	mux.Handle("GET /app/{slug}/activity", h.readWrap(h.handleActivity))
 	mux.Handle("GET /app/{slug}/knowledge", h.readWrap(h.handleKnowledge))
 	mux.Handle("GET /app/{slug}/governance", h.readWrap(h.handleGovernance))
@@ -1080,6 +1081,40 @@ func (h *Handlers) handleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	AgentsView(*space, spaces, categories, h.viewUser(r)).Render(r.Context(), w)
+}
+
+func (h *Handlers) handleAgentChat(w http.ResponseWriter, r *http.Request) {
+	personaName := r.PathValue("name")
+	ctx := r.Context()
+	persona := h.store.GetAgentPersona(ctx, personaName)
+	if persona == nil {
+		http.NotFound(w, r)
+		return
+	}
+	agentsSpace, err := h.store.GetSpaceBySlug(ctx, AgentsSpaceSlug)
+	if err != nil || agentsSpace == nil {
+		http.Error(w, "agents space not available", http.StatusServiceUnavailable)
+		return
+	}
+	actorID, actor, actorKind := h.userID(r), h.userName(r), h.userKind(r)
+	node, err := h.store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:    agentsSpace.ID,
+		Kind:       KindConversation,
+		Title:      "Chat with " + persona.Display,
+		Author:     actor,
+		AuthorID:   actorID,
+		AuthorKind: actorKind,
+		Tags:       []string{actorID, "role:" + persona.Name},
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.store.RecordOp(ctx, agentsSpace.ID, node.ID, actor, actorID, "converse", nil)
+	if h.mind != nil {
+		go h.mind.OnMessage(agentsSpace.ID, agentsSpace.Slug, node, actorID)
+	}
+	http.Redirect(w, r, fmt.Sprintf("/app/%s/conversation/%s", agentsSpace.Slug, node.ID), http.StatusSeeOther)
 }
 
 func (h *Handlers) handleActivity(w http.ResponseWriter, r *http.Request) {
