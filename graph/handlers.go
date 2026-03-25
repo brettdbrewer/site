@@ -2107,8 +2107,23 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Route agent conversations (identified by role:* participant tags) to the agents space.
+		targetSpace := space
+		hasRoleTag := false
+		for _, p := range participants {
+			if strings.HasPrefix(p, "role:") {
+				hasRoleTag = true
+				break
+			}
+		}
+		if hasRoleTag {
+			if agentsSpace, _ := h.store.GetSpaceBySlug(ctx, AgentsSpaceSlug); agentsSpace != nil {
+				targetSpace = agentsSpace
+			}
+		}
+
 		node, err := h.store.CreateNode(ctx, CreateNodeParams{
-			SpaceID:    space.ID,
+			SpaceID:    targetSpace.ID,
 			Kind:       KindConversation,
 			Title:      title,
 			Body:       strings.TrimSpace(r.FormValue("body")),
@@ -2121,18 +2136,18 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "converse", nil)
+		h.store.RecordOp(ctx, targetSpace.ID, node.ID, actor, actorID, "converse", nil)
 
 		// Trigger Mind if a human created a conversation with an agent.
 		if h.mind != nil && actorKind != "agent" {
-			go h.mind.OnMessage(space.ID, space.Slug, node, actorID)
+			go h.mind.OnMessage(targetSpace.ID, targetSpace.Slug, node, actorID)
 		}
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "converse"})
 			return
 		}
-		http.Redirect(w, r, fmt.Sprintf("/app/%s/conversation/%s", space.Slug, node.ID), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/app/%s/conversation/%s", targetSpace.Slug, node.ID), http.StatusSeeOther)
 
 	case "join":
 		if err := h.store.JoinSpace(ctx, space.ID, actorID, actor); err != nil {

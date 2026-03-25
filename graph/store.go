@@ -3336,3 +3336,48 @@ func (s *Store) SeedDemoSpace(ctx context.Context) string {
 	log.Printf("seed demo: created demo space %q (id=%s)", DemoSpaceSlug, space.ID)
 	return DemoSpaceSlug
 }
+
+// ────────────────────────────────────────────────────────────────────
+
+const AgentsSpaceSlug = "agents"
+
+// EnsureAgentsSpace creates the public agents space if it doesn't exist.
+// Idempotent — safe to call on every startup.
+// Returns the agents space on success, nil on error.
+func (s *Store) EnsureAgentsSpace(ctx context.Context) *Space {
+	if existing, _ := s.GetSpaceBySlug(ctx, AgentsSpaceSlug); existing != nil {
+		return existing
+	}
+
+	const agentsGoogleID = "system:agents-host"
+
+	// Upsert the system agent user that owns the space.
+	var ownerID string
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO users (id, google_id, email, name, kind)
+		VALUES ($1, $2, 'agents@system.lovyou.ai', 'Agents', 'agent')
+		ON CONFLICT (google_id) DO UPDATE SET name = EXCLUDED.name
+		RETURNING id`,
+		newID(), agentsGoogleID,
+	).Scan(&ownerID)
+	if err != nil {
+		log.Printf("ensure agents space: upsert owner: %v", err)
+		return nil
+	}
+
+	space, err := s.CreateSpace(ctx,
+		AgentsSpaceSlug,
+		"Agents",
+		"All agent conversations — transparent and open to everyone.",
+		ownerID,
+		SpaceCommunity,
+		VisibilityPublic,
+	)
+	if err != nil {
+		log.Printf("ensure agents space: create space: %v", err)
+		return nil
+	}
+
+	log.Printf("ensure agents space: created %q (id=%s)", AgentsSpaceSlug, space.ID)
+	return space
+}
