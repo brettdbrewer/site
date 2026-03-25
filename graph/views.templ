@@ -412,6 +412,7 @@ templ commandPalette() {
 templ lensLink(spaceSlug, lens, label, activeLens string, icon templ.Component) {
 	<a
 		href={ templ.SafeURL("/app/" + spaceSlug + "/" + lens) }
+		title={ lensTooltip(lens) }
 		class={ "flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-md transition-all duration-200",
 			templ.KV("bg-brand/10 text-brand font-medium border-l-2 border-brand", lens == activeLens),
 			templ.KV("hover:bg-elevated text-warm-muted hover:text-warm border-l-2 border-transparent", lens != activeLens) }
@@ -4725,6 +4726,29 @@ func lastMessageTS(messages []Node) string {
 		return time.Now().UTC().Format(time.RFC3339Nano)
 	}
 	return messages[len(messages)-1].CreatedAt.Format(time.RFC3339Nano)
+}
+
+func lensTooltip(lens string) string {
+	switch lens {
+	case "board":
+		return "Track and prioritize tasks by status"
+	case "conversations":
+		return "Direct conversations with teammates and agents"
+	case "feed":
+		return "Activity stream of posts and updates"
+	case "people":
+		return "Team members, agents, and collaborators"
+	case "threads":
+		return "Topic discussions and ongoing conversations"
+	case "knowledge":
+		return "Assert what you know, challenge what you doubt"
+	case "governance":
+		return "Propose changes and vote on decisions"
+	case "changelog":
+		return "Completed tasks — what shipped and when"
+	default:
+		return ""
+	}
 }
 
 // ── Knowledge lens (Layer 6) ────────────────────────────────────
