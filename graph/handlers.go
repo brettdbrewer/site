@@ -118,6 +118,9 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /app/{slug}/node/{id}/state", h.writeWrap(h.handleNodeState))
 	mux.Handle("POST /app/{slug}/node/{id}/update", h.writeWrap(h.handleNodeUpdate))
 	mux.Handle("DELETE /app/{slug}/node/{id}", h.writeWrap(h.handleNodeDelete))
+
+	// Hive dashboard — public, no auth required.
+	mux.HandleFunc("GET /hive", h.handleHive)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -3347,6 +3350,123 @@ func (h *Handlers) handleSetMindState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"key": key, "status": "ok"})
+}
+
+// maxHivePosts is the upper bound on posts fetched and processed by the /hive
+// dashboard. Invariant 13 (BOUNDED): every operation has defined scope.
+const maxHivePosts = 20
+
+// activeRoleThreshold is the window within which a pipeline role is considered
+// active. A post within this window sets the role's Active = true.
+const activeRoleThreshold = 30 * time.Minute
+
+// HiveStats holds aggregated metrics parsed from hive agent post bodies.
+type HiveStats struct {
+	Features  int
+	TotalCost float64
+	AvgCost   float64
+}
+
+var (
+	reCost     = regexp.MustCompile(`\$(\d+\.\d+)`)
+	reDuration = regexp.MustCompile(`Duration:\s*(\d+m(?:\d+s)?)`)
+)
+
+// parseCostDollars extracts the first dollar amount from a post body (e.g. "Cost: $0.53").
+func parseCostDollars(body string) float64 {
+	m := reCost.FindStringSubmatch(body)
+	if m == nil {
+		return 0
+	}
+	v, _ := strconv.ParseFloat(m[1], 64)
+	return v
+}
+
+// parseDurationStr extracts the duration string from a post body (e.g. "Duration: 3m28s" → "3m28s").
+func parseDurationStr(body string) string {
+	m := reDuration.FindStringSubmatch(body)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+// computeHiveStats aggregates cost metrics across hive agent posts.
+// posts must be pre-bounded (callers must pass at most maxHivePosts entries).
+// Features counts only posts that include a cost line (cost > 0); posts without
+// a cost entry are excluded from all three metrics. This is intentional: a post
+// without a cost line is not a verified build iteration.
+func computeHiveStats(posts []Node) HiveStats {
+	var total float64
+	var features int
+	for _, p := range posts {
+		c := parseCostDollars(p.Body)
+		if c > 0 {
+			total += c
+			features++
+		}
+	}
+	avg := 0.0
+	if features > 0 {
+		avg = total / float64(features)
+	}
+	return HiveStats{Features: features, TotalCost: total, AvgCost: avg}
+}
+
+// PipelineRole holds display state for a pipeline role on the /hive dashboard.
+type PipelineRole struct {
+	Name       string    // "Scout", "Builder", "Critic"
+	LastActive time.Time // zero = never seen in fetched posts
+	Active     bool      // true = post within last 30 minutes
+}
+
+// pipelineRoleDefs maps display names to the title prefix used by each role.
+var pipelineRoleDefs = []struct {
+	display string
+	prefix  string
+}{
+	{"Scout", "[hive:scout]"},
+	{"Builder", "[hive:builder]"},
+	{"Critic", "[hive:critic]"},
+}
+
+// computePipelineRoles extracts last-active timestamps for Scout, Builder, and Critic
+// by scanning post titles for the standard [hive:role] prefix.
+func computePipelineRoles(posts []Node) []PipelineRole {
+	last := make(map[string]time.Time, len(pipelineRoleDefs))
+	for _, p := range posts {
+		lower := strings.ToLower(p.Title)
+		for _, rd := range pipelineRoleDefs {
+			if strings.HasPrefix(lower, rd.prefix) {
+				if t, ok := last[rd.display]; !ok || p.CreatedAt.After(t) {
+					last[rd.display] = p.CreatedAt
+				}
+			}
+		}
+	}
+	now := time.Now()
+	roles := make([]PipelineRole, len(pipelineRoleDefs))
+	for i, rd := range pipelineRoleDefs {
+		t := last[rd.display]
+		roles[i] = PipelineRole{
+			Name:       rd.display,
+			LastActive: t,
+			Active:     !t.IsZero() && now.Sub(t) < activeRoleThreshold,
+		}
+	}
+	return roles
+}
+
+// handleHive renders the public /hive dashboard showing agent posts and stats.
+func (h *Handlers) handleHive(w http.ResponseWriter, r *http.Request) {
+	posts, err := h.store.ListHiveActivity(r.Context(), "", maxHivePosts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	stats := computeHiveStats(posts)
+	roles := computePipelineRoles(posts)
+	HiveView(posts, stats, roles, h.viewUser(r)).Render(r.Context(), w)
 }
 
 // groundedLabel returns "grounded in N doc(s)" for agent messages that used document context,

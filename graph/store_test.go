@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 
@@ -1062,5 +1063,70 @@ func TestGetAgentPersonasForConversations(t *testing.T) {
 	empty := store.GetAgentPersonasForConversations(ctx, nil)
 	if len(empty) != 0 {
 		t.Errorf("empty input: expected 0 results, got %d", len(empty))
+	}
+}
+
+// TestListHiveActivity_FiltersAndLimits verifies that ListHiveActivity respects
+// the author_id filter and the LIMIT parameter (invariant 13: BOUNDED).
+func TestListHiveActivity_FiltersAndLimits(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, err := store.CreateSpace(ctx, "hive-activity-test", "Hive Activity Test", "", "owner-ha-test", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	const agentID = "test-hive-agent-bounded-id"
+	const otherID = "test-other-agent-bounded-id"
+
+	// Create 3 posts by agentID and 2 by otherID.
+	for i := range 3 {
+		if _, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    space.ID,
+			Kind:       KindPost,
+			Title:      fmt.Sprintf("hive post %d", i),
+			Author:     "hive-agent",
+			AuthorID:   agentID,
+			AuthorKind: "agent",
+		}); err != nil {
+			t.Fatalf("create hive post %d: %v", i, err)
+		}
+	}
+	for i := range 2 {
+		if _, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    space.ID,
+			Kind:       KindPost,
+			Title:      fmt.Sprintf("other post %d", i),
+			Author:     "other-agent",
+			AuthorID:   otherID,
+			AuthorKind: "agent",
+		}); err != nil {
+			t.Fatalf("create other post %d: %v", i, err)
+		}
+	}
+
+	// author_id filter: only returns posts matching agentID.
+	posts, err := store.ListHiveActivity(ctx, agentID, 100)
+	if err != nil {
+		t.Fatalf("list hive activity: %v", err)
+	}
+	if len(posts) != 3 {
+		t.Errorf("author_id filter: got %d posts, want 3", len(posts))
+	}
+	for _, p := range posts {
+		if p.AuthorID != agentID {
+			t.Errorf("got post with author_id %q, want %q", p.AuthorID, agentID)
+		}
+	}
+
+	// LIMIT is enforced: requesting 2 returns at most 2.
+	limited, err := store.ListHiveActivity(ctx, agentID, 2)
+	if err != nil {
+		t.Fatalf("list hive activity with limit: %v", err)
+	}
+	if len(limited) != 2 {
+		t.Errorf("LIMIT: got %d posts, want 2", len(limited))
 	}
 }

@@ -2004,6 +2004,61 @@ func (s *Store) ListProposals(ctx context.Context, spaceID, stateFilter string, 
 	return proposals, rows.Err()
 }
 
+// ListHiveActivity returns posts authored by agents, optionally filtered to a
+// specific author by ID. limit must be > 0; if ≤ 0 it defaults to 20 (BOUNDED).
+func (s *Store) ListHiveActivity(ctx context.Context, authorID string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	const cols = `
+		SELECT n.id, n.space_id, COALESCE(n.parent_id, ''), n.kind, n.title, n.body,
+		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind,
+		       n.tags, n.pinned, n.due_date, n.created_at, n.updated_at, n.verdict, n.rating
+		FROM nodes n`
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if authorID != "" {
+		rows, err = s.db.QueryContext(ctx,
+			cols+` WHERE n.kind = 'post' AND n.author_id = $1 ORDER BY n.created_at DESC LIMIT $2`,
+			authorID, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			cols+` WHERE n.kind = 'post' AND n.author_kind = 'agent' ORDER BY n.created_at DESC LIMIT $1`,
+			limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list hive activity: %w", err)
+	}
+	defer rows.Close()
+
+	var nodes []Node
+	for rows.Next() {
+		var n Node
+		var parentID sql.NullString
+		var dueDate sql.NullTime
+		if err := rows.Scan(
+			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
+			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind,
+			pq.Array(&n.Tags), &n.Pinned, &dueDate, &n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
+		); err != nil {
+			return nil, fmt.Errorf("scan hive node: %w", err)
+		}
+		if parentID.Valid {
+			n.ParentID = parentID.String
+		}
+		if dueDate.Valid {
+			d := dueDate.Time
+			n.DueDate = &d
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes, rows.Err()
+}
+
 // HasVoted checks if a user has already voted on a proposal.
 func (s *Store) HasVoted(ctx context.Context, nodeID, actorID string) bool {
 	var exists bool

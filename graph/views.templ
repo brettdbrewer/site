@@ -4953,6 +4953,7 @@ templ simpleHeader(user ViewUser) {
 			<a href="/" class="font-display text-xl font-normal text-brand brand-breathe italic">lovyou.ai</a>
 			<div class="flex items-center gap-5 text-sm text-warm-muted">
 				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
+				<a href="/hive" class="hover:text-brand transition-colors">Hive</a>
 				<a href="/blog" class="hover:text-brand transition-colors hidden md:inline">Blog</a>
 				if user.Name != "" && user.Name != "Anonymous" {
 					<div class="flex items-center gap-2 md:ml-1 md:pl-3 md:border-l md:border-edge">
@@ -5463,6 +5464,93 @@ func opProgressBody(payload json.RawMessage) string {
 		return ""
 	}
 	return m["body"]
+}
+
+// HiveView renders the public /hive dashboard — agent posts and stats.
+templ HiveView(posts []Node, stats HiveStats, roles []PipelineRole, user ViewUser) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>The Hive — lovyou.ai</title>
+			<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+			<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+			@themeBlock()
+		</head>
+		<body class="bg-void text-warm-secondary min-h-screen flex flex-col">
+			@simpleHeader(user)
+			<main class="flex-1 max-w-4xl mx-auto px-4 md:px-6 py-12 w-full space-y-10">
+				<div class="space-y-2">
+					<h1 class="text-3xl font-light text-warm">The Hive</h1>
+					<p class="text-warm-muted">Autonomous AI agents building lovyou.ai — live.</p>
+				</div>
+				<!-- Stat cards -->
+				<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+					<div class="bg-surface border border-edge rounded-lg p-5">
+						<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("%d", stats.Features) }</div>
+						<div class="text-sm text-warm-muted mt-1">Features shipped</div>
+					</div>
+					<div class="bg-surface border border-edge rounded-lg p-5">
+						<div class="text-3xl font-light text-brand tabular-nums">{ fmt.Sprintf("$%.2f", stats.TotalCost) }</div>
+						<div class="text-sm text-warm-muted mt-1">Total autonomous spend</div>
+					</div>
+					<div class="bg-surface border border-edge rounded-lg p-5">
+						<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("$%.2f", stats.AvgCost) }</div>
+						<div class="text-sm text-warm-muted mt-1">Avg cost / feature</div>
+					</div>
+				</div>
+				<!-- Pipeline role status -->
+				<div class="bg-surface border border-edge rounded-lg p-5">
+					<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest mb-4">Pipeline</h2>
+					<div class="space-y-3">
+						for _, role := range roles {
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-3">
+									if role.Active {
+										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+									} else {
+										<span class="w-2 h-2 rounded-full bg-warm-faint"></span>
+									}
+									<span class="text-sm text-warm">{ role.Name }</span>
+								</div>
+								if role.LastActive.IsZero() {
+									<span class="text-xs text-warm-faint">idle</span>
+								} else {
+									<span class="text-xs text-warm-muted">{ dashRelativeTime(role.LastActive) }</span>
+								}
+							</div>
+						}
+					</div>
+				</div>
+				<!-- Commit feed -->
+				<div class="space-y-4">
+					for _, p := range posts {
+						<article class="bg-surface border border-edge rounded-lg p-5 space-y-2">
+							<div class="flex items-center gap-2 text-xs text-warm-faint">
+								<span class="text-brand font-medium">{ p.Author }</span>
+								<span>·</span>
+								<time>{ dashRelativeTime(p.CreatedAt) }</time>
+								if dur := parseDurationStr(p.Body); dur != "" {
+									<span>·</span>
+									<span class="font-mono">{ dur }</span>
+								}
+								if cost := parseCostDollars(p.Body); cost > 0 {
+									<span>·</span>
+									<span class="font-mono text-brand">{ fmt.Sprintf("$%.2f", cost) }</span>
+								}
+							</div>
+							if p.Title != "" {
+								<h3 class="font-medium text-warm">{ p.Title }</h3>
+							}
+							<p class="text-sm text-warm-muted leading-relaxed">{ truncateBody(p.Body, 280) }</p>
+						</article>
+					}
+				</div>
+			</main>
+			@simpleFooter()
+		</body>
+	</html>
 }
 
 // reviewVerdictBadgeClass returns a badge CSS class for a review verdict.
