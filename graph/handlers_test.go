@@ -751,10 +751,10 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-	// Simulates the real RequireAuth middleware: redirects unauthenticated users to /auth/login.
-	noAuthWrap := func(next http.HandlerFunc) http.Handler {
+	// Passes request through without a user — handler sees "anonymous" and redirects with ?next=.
+	anonWrap := func(next http.HandlerFunc) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			next.ServeHTTP(w, r)
 		})
 	}
 
@@ -770,19 +770,20 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 	}
 
 	t.Run("unauthenticated_redirect", func(t *testing.T) {
-		h := NewHandlers(store, noAuthWrap, noAuthWrap)
+		h := NewHandlers(store, anonWrap, anonWrap)
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/join/"+token, nil)
+		req := httptest.NewRequest("GET", "/app/join/"+token, nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusSeeOther {
 			t.Errorf("status = %d, want %d", w.Code, http.StatusSeeOther)
 		}
-		if loc := w.Header().Get("Location"); loc != "/auth/login" {
-			t.Errorf("Location = %q, want /auth/login", loc)
+		want := "/auth/login?next=%2Fapp%2Fjoin%2F" + token
+		if loc := w.Header().Get("Location"); loc != want {
+			t.Errorf("Location = %q, want %q", loc, want)
 		}
 	})
 
@@ -791,7 +792,7 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/join/"+token, nil)
+		req := httptest.NewRequest("GET", "/app/join/"+token, nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -812,7 +813,7 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/join/nonexistent-token", nil)
+		req := httptest.NewRequest("GET", "/app/join/nonexistent-token", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 

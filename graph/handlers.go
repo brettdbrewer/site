@@ -71,8 +71,8 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 
 	// Space invites.
 	mux.Handle("POST /app/{slug}/invites", h.writeWrap(h.handleCreateInviteHTMX))
-	mux.Handle("DELETE /app/{slug}/invites/{token}", h.writeWrap(h.handleRevokeInvite))
-	mux.Handle("GET /join/{token}", h.writeWrap(h.handleJoinViaInvite))
+	mux.Handle("DELETE /app/{slug}/invites/{id}", h.writeWrap(h.handleRevokeInvite))
+	mux.Handle("GET /app/join/{code}", h.readWrap(h.handleJoinViaInvite))
 
 	// Space lenses (optional auth — public spaces readable by anyone).
 	mux.Handle("GET /app/{slug}", h.readWrap(h.handleSpaceDefault))
@@ -556,7 +556,7 @@ func (h *Handlers) handleCreateInviteHTMX(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	token, err := h.store.CreateInvite(r.Context(), space.ID, h.userID(r))
+	token, err := h.store.CreateInviteCode(r.Context(), space.ID, h.userID(r), nil, 0)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -578,7 +578,7 @@ func (h *Handlers) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := r.PathValue("token")
+	token := r.PathValue("id")
 	// Verify the token belongs to this space before deleting.
 	spaceID := h.store.GetInviteSpaceID(r.Context(), token)
 	if spaceID != space.ID {
@@ -594,19 +594,30 @@ func (h *Handlers) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleJoinViaInvite(w http.ResponseWriter, r *http.Request) {
-	token := r.PathValue("token")
-	spaceID := h.store.GetInviteSpaceID(r.Context(), token)
-	if spaceID == "" {
+	code := r.PathValue("code")
+
+	uid := h.userID(r)
+	if uid == "anonymous" {
+		next := url.QueryEscape(r.URL.Path)
+		http.Redirect(w, r, "/auth/login?next="+next, http.StatusSeeOther)
+		return
+	}
+
+	inv, err := h.store.GetInviteCode(r.Context(), code)
+	if err != nil || inv == nil {
 		http.Error(w, "invalid or expired invite", http.StatusNotFound)
 		return
 	}
 
-	uid := h.userID(r)
 	uname := h.userName(r)
-	h.store.JoinSpace(r.Context(), spaceID, uid, uname)
-	h.store.RecordOp(r.Context(), spaceID, "", uname, uid, "join", nil)
+	if err := h.store.JoinSpace(r.Context(), inv.SpaceID, uid, uname); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.store.UseInviteCode(r.Context(), code, uid)
+	h.store.RecordOp(r.Context(), inv.SpaceID, "", uname, uid, "join", nil)
 
-	space, err := h.store.GetSpaceByID(r.Context(), spaceID)
+	space, err := h.store.GetSpaceByID(r.Context(), inv.SpaceID)
 	if err != nil {
 		http.Redirect(w, r, "/app", http.StatusSeeOther)
 		return
