@@ -38,9 +38,11 @@ func TestHandlerCreateSpace(t *testing.T) {
 	mux := http.NewServeMux()
 	h.Register(mux)
 
+	slug := fmt.Sprintf("handler-test-%d", time.Now().UnixNano())
+
 	// Create space via form POST.
 	form := url.Values{}
-	form.Set("slug", "handler-test")
+	form.Set("slug", slug)
 	form.Set("name", "Handler Test")
 	form.Set("description", "Testing handlers")
 	form.Set("kind", "project")
@@ -56,7 +58,7 @@ func TestHandlerCreateSpace(t *testing.T) {
 	}
 
 	// Verify space was created.
-	space, err := store.GetSpaceBySlug(t.Context(), "handler-test")
+	space, err := store.GetSpaceBySlug(t.Context(), slug)
 	if err != nil {
 		t.Fatalf("get space: %v", err)
 	}
