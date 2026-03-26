@@ -75,7 +75,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	// Space invites.
 	mux.Handle("POST /app/{slug}/invites", h.writeWrap(h.handleCreateInviteHTMX))
 	mux.Handle("DELETE /app/{slug}/invites/{id}", h.writeWrap(h.handleRevokeInvite))
-	mux.Handle("GET /app/join/{code}", h.readWrap(h.handleJoinViaInvite))
+	mux.Handle("GET /join/{code}", h.readWrap(h.handleJoinViaInvite))
 
 	// Space lenses (optional auth — public spaces readable by anyone).
 	mux.Handle("GET /app/{slug}", h.readWrap(h.handleSpaceDefault))

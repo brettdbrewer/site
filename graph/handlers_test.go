@@ -774,14 +774,14 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/app/join/"+token, nil)
+		req := httptest.NewRequest("GET", "/join/"+token, nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusSeeOther {
 			t.Errorf("status = %d, want %d", w.Code, http.StatusSeeOther)
 		}
-		want := "/auth/login?next=%2Fapp%2Fjoin%2F" + token
+		want := "/auth/login?next=%2Fjoin%2F" + token
 		if loc := w.Header().Get("Location"); loc != want {
 			t.Errorf("Location = %q, want %q", loc, want)
 		}
@@ -792,7 +792,7 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/app/join/"+token, nil)
+		req := httptest.NewRequest("GET", "/join/"+token, nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -813,7 +813,7 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		mux := http.NewServeMux()
 		h.Register(mux)
 
-		req := httptest.NewRequest("GET", "/app/join/nonexistent-token", nil)
+		req := httptest.NewRequest("GET", "/join/nonexistent-token", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -1002,6 +1002,209 @@ func TestHandlerRevokeInvite(t *testing.T) {
 
 		if w.Code != http.StatusNotFound {
 			t.Errorf("status = %d, want %d (unauthenticated should be rejected)", w.Code, http.StatusNotFound)
+		}
+	})
+}
+
+// TestHandlerConveneOp verifies that a convene op creates a KindCouncil node
+// with the correct body and tags (agent IDs resolved by name).
+func TestHandlerConveneOp(t *testing.T) {
+	_, store := testDB(t)
+	ctx := t.Context()
+
+	// Create two agent users for the council.
+	agentAID := "convene-agent-a-id"
+	agentAName := "ConveneAgentA"
+	agentBID := "convene-agent-b-id"
+	agentBName := "ConveneAgentB"
+	for _, row := range []struct{ id, name string }{{agentAID, agentAName}, {agentBID, agentBName}} {
+		store.db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, row.id)
+		_, err := store.db.ExecContext(ctx,
+			`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+			row.id, "agent:"+row.name, row.name+"@test.lovyou.ai", row.name)
+		if err != nil {
+			t.Fatalf("create agent %s: %v", row.name, err)
+		}
+	}
+	t.Cleanup(func() {
+		store.db.ExecContext(ctx, `DELETE FROM users WHERE id IN ($1, $2)`, agentAID, agentBID)
+	})
+
+	testUser := &auth.User{ID: "convene-human-1", Name: "ConveneTester", Email: "convene@test.com", Kind: "human"}
+	wrap := func(next http.HandlerFunc) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(auth.ContextWithUser(r.Context(), testUser))
+			next.ServeHTTP(w, r)
+		})
+	}
+	h := NewHandlers(store, wrap, wrap)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(ctx, "convene-op-test"); old != nil {
+		store.DeleteSpace(ctx, old.ID)
+	}
+	space, err := store.CreateSpace(ctx, "convene-op-test", "Convene Op Test", "", testUser.ID, "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	body := `{"op":"convene","title":"What should we build next?","body":"Please share your perspective.","agents":"` + agentAName + `,` + agentBName + `"}`
+	req := httptest.NewRequest("POST", "/app/convene-op-test/op", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if result["op"] != "convene" {
+		t.Errorf("op = %v, want convene", result["op"])
+	}
+	node := result["node"].(map[string]any)
+	if node["kind"] != KindCouncil {
+		t.Errorf("kind = %v, want %q", node["kind"], KindCouncil)
+	}
+	if node["body"] != "Please share your perspective." {
+		t.Errorf("body = %v, want 'Please share your perspective.'", node["body"])
+	}
+	if node["title"] != "What should we build next?" {
+		t.Errorf("title = %v, want 'What should we build next?'", node["title"])
+	}
+	tags, _ := node["tags"].([]any)
+	tagSet := make(map[string]bool)
+	for _, tag := range tags {
+		tagSet[tag.(string)] = true
+	}
+	if !tagSet[agentAID] {
+		t.Errorf("tags missing agent A ID %q; got %v", agentAID, tags)
+	}
+	if !tagSet[agentBID] {
+		t.Errorf("tags missing agent B ID %q; got %v", agentBID, tags)
+	}
+}
+
+// TestHandlerCouncilDetail verifies that GET /app/{slug}/council/{id}
+// returns 200 with response rows when Mind response nodes exist.
+func TestHandlerCouncilDetail(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	ctx := t.Context()
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(ctx, "council-detail-test"); old != nil {
+		store.DeleteSpace(ctx, old.ID)
+	}
+	space, err := store.CreateSpace(ctx, "council-detail-test", "Council Detail Test", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	council, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:  space.ID,
+		Kind:     KindCouncil,
+		Title:    "Should we prioritize performance?",
+		Body:     "Looking for agent perspectives.",
+		Author:   "Tester",
+		AuthorID: "test-user-1",
+		Tags:     []string{"agent-resp-1"},
+	})
+	if err != nil {
+		t.Fatalf("create council: %v", err)
+	}
+
+	// Simulate two Mind responses as child KindComment nodes.
+	for i, name := range []string{"AgentX", "AgentY"} {
+		_, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    space.ID,
+			ParentID:   council.ID,
+			Kind:       KindComment,
+			Body:       "Response from " + name,
+			Author:     name,
+			AuthorID:   "agent-resp-" + string(rune('1'+i)),
+			AuthorKind: "agent",
+		})
+		if err != nil {
+			t.Fatalf("create response %s: %v", name, err)
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/app/council-detail-test/council/"+council.ID, nil)
+	req.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	session := result["session"].(map[string]any)
+	if session["id"] != council.ID {
+		t.Errorf("session.id = %v, want %v", session["id"], council.ID)
+	}
+	if session["kind"] != KindCouncil {
+		t.Errorf("session.kind = %v, want %q", session["kind"], KindCouncil)
+	}
+	responses, _ := result["responses"].([]any)
+	if len(responses) != 2 {
+		t.Errorf("got %d responses, want 2", len(responses))
+	}
+}
+
+// TestHandlerCouncilDetail_NotFound verifies that a wrong kind or missing node returns 404.
+func TestHandlerCouncilDetail_NotFound(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	ctx := t.Context()
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(ctx, "council-notfound-test"); old != nil {
+		store.DeleteSpace(ctx, old.ID)
+	}
+	space, err := store.CreateSpace(ctx, "council-notfound-test", "Council NotFound Test", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	t.Run("nonexistent_id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/app/council-notfound-test/council/no-such-id", nil)
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+		}
+	})
+
+	t.Run("wrong_kind_returns_404", func(t *testing.T) {
+		task, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID: space.ID, Kind: KindTask, Title: "Not a council",
+			Author: "Tester", AuthorID: "test-user-1",
+		})
+		if err != nil {
+			t.Fatalf("create task: %v", err)
+		}
+		req := httptest.NewRequest("GET", "/app/council-notfound-test/council/"+task.ID, nil)
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want %d (wrong kind should 404)", w.Code, http.StatusNotFound)
 		}
 	})
 }

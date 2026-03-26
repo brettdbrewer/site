@@ -1290,7 +1290,7 @@ templ inviteTeammatesCard(spaceSlug string, inviteToken string) {
 						id="invite-link-input"
 						type="text"
 						readonly
-						value={ "https://lovyou.ai/app/join/" + inviteToken }
+						value={ "https://lovyou.ai/join/" + inviteToken }
 						class="flex-1 min-w-0 px-2.5 py-1.5 bg-surface border border-edge rounded-lg text-xs text-warm-secondary font-mono focus:outline-none focus:ring-1 focus:ring-brand truncate"
 					/>
 					<button
@@ -4017,7 +4017,7 @@ templ InviteCodeRow(inv InviteCode, slug string) {
 	<div id={ "invite-" + inv.Token } class="flex items-center gap-2 py-2.5 border-b border-edge last:border-0">
 		<input
 			type="text"
-			value={ "https://lovyou.ai/app/join/" + inv.Token }
+			value={ "https://lovyou.ai/join/" + inv.Token }
 			readonly
 			onclick="this.select()"
 			class="flex-1 min-w-0 px-2 py-1.5 bg-elevated border border-edge rounded text-xs text-warm font-mono focus:outline-none focus:ring-1 focus:ring-brand"

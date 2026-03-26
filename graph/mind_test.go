@@ -129,6 +129,91 @@ func TestMindOnMessage(t *testing.T) {
 	})
 }
 
+// TestMindOnCouncilConvened verifies that OnCouncilConvened calls Claude once per
+// tagged agent ID. Uses callClaudeOverride to count invocations without a real token.
+func TestMindOnCouncilConvened(t *testing.T) {
+	db, store := testDB(t)
+	ctx := context.Background()
+	mind := NewMind(db, store, "fake-token")
+
+	agentAID := "council-agent-a-id"
+	agentAName := "CouncilAgentA"
+	agentBID := "council-agent-b-id"
+	agentBName := "CouncilAgentB"
+
+	for _, row := range []struct{ id, name string }{{agentAID, agentAName}, {agentBID, agentBName}} {
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, row.id)
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+			row.id, "agent:"+row.name, row.name+"@test.lovyou.ai", row.name)
+		if err != nil {
+			t.Fatalf("create agent %s: %v", row.name, err)
+		}
+	}
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM users WHERE id IN ($1, $2)`, agentAID, agentBID)
+	})
+
+	space, err := store.CreateSpace(ctx, "council-mind-test", "Council Mind Test", "", "owner", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	council, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:  space.ID,
+		Kind:     KindCouncil,
+		Title:    "What is the best architecture?",
+		Body:     "Give your perspective.",
+		Author:   "Human",
+		AuthorID: "owner",
+		Tags:     []string{agentAID, agentBID},
+	})
+	if err != nil {
+		t.Fatalf("create council: %v", err)
+	}
+
+	// Count calls per agent via callClaudeOverride.
+	var callCount int
+	calledFor := make(map[string]int) // systemPrompt substring → count
+	mind.callClaudeOverride = func(_ context.Context, systemPrompt string, _ []claudeMessage) (string, error) {
+		callCount++
+		for _, name := range []string{agentAName, agentBName} {
+			if strings.Contains(systemPrompt, name) {
+				calledFor[name]++
+			}
+		}
+		return "stub response", nil
+	}
+
+	// OnCouncilConvened is synchronous — no goroutine here, called directly.
+	mind.OnCouncilConvened(space.ID, space.Slug, council)
+
+	if callCount != 2 {
+		t.Errorf("callClaude called %d times, want 2 (one per agent)", callCount)
+	}
+
+	// Verify response nodes were created — one comment per agent.
+	responses, err := store.ListNodes(ctx, ListNodesParams{SpaceID: space.ID, ParentID: council.ID, Limit: 10})
+	if err != nil {
+		t.Fatalf("list responses: %v", err)
+	}
+	if len(responses) != 2 {
+		t.Errorf("got %d response nodes, want 2", len(responses))
+	}
+	// Each response should be authored by a different agent.
+	authorIDs := make(map[string]bool)
+	for _, r := range responses {
+		authorIDs[r.AuthorID] = true
+	}
+	if !authorIDs[agentAID] {
+		t.Errorf("no response from agent A (%s)", agentAID)
+	}
+	if !authorIDs[agentBID] {
+		t.Errorf("no response from agent B (%s)", agentBID)
+	}
+}
+
 // TestMindTaskWork verifies the Mind decomposes and works on assigned tasks.
 // Requires DATABASE_URL and CLAUDE_CODE_OAUTH_TOKEN.
 func TestMindTaskWork(t *testing.T) {
