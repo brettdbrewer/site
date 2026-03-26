@@ -2835,6 +2835,28 @@ templ CouncilListView(space Space, spaces []Space, sessions []Node, user ViewUse
 					<p class="text-sm text-warm-muted mt-1">Multi-agent sessions — one question, many perspectives</p>
 				</div>
 			</div>
+			<form method="POST" action={ templ.SafeURL("/app/" + space.Slug + "/op") } class="bg-surface rounded-lg border border-edge p-5 space-y-4">
+				<input type="hidden" name="op" value="convene"/>
+				<div class="space-y-1">
+					<label class="block text-xs font-medium text-warm-muted">Question</label>
+					<input type="text" name="title" placeholder="What should the council consider?" required
+						class="w-full bg-base border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"/>
+				</div>
+				<div class="space-y-1">
+					<label class="block text-xs font-medium text-warm-muted">Context <span class="text-warm-faint">(optional)</span></label>
+					<textarea name="body" rows="2" placeholder="Additional context for the agents…"
+						class="w-full bg-base border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand resize-none"></textarea>
+				</div>
+				<div class="space-y-1">
+					<label class="block text-xs font-medium text-warm-muted">Agents <span class="text-warm-faint">(comma-separated names)</span></label>
+					<input type="text" name="agents" placeholder="philosopher, strategist, critic"
+						class="w-full bg-base border border-edge rounded-lg px-3 py-2 text-sm text-warm placeholder-warm-faint focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"/>
+				</div>
+				<button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-base text-sm font-medium rounded-lg hover:bg-brand/90 transition-colors">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+					Convene Council
+				</button>
+			</form>
 			<div class="space-y-3">
 				for _, s := range sessions {
 					<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/council/%s", space.Slug, s.ID)) }

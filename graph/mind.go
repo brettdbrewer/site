@@ -154,6 +154,101 @@ func (m *Mind) buildQuestionAnswerPrompt(question *Node, docs []Node) string {
 	return sys.String()
 }
 
+// OnCouncilConvened is called when a KindCouncil node is created via the convene op.
+// It iterates the council's tags (agent actor IDs), calls each persona once, and posts
+// each response as a KindComment with a respond op under that agent's actor_id.
+func (m *Mind) OnCouncilConvened(spaceID, spaceSlug string, council *Node) {
+	ctx, cancel := context.WithTimeout(context.Background(), m.replyTimeout)
+	defer cancel()
+
+	if len(council.Tags) == 0 {
+		log.Printf("mind: council %q: no agents tagged, skipping", council.Title)
+		return
+	}
+
+	docs, err := m.store.ListDocumentContext(ctx, spaceID)
+	if err != nil {
+		log.Printf("mind: list docs for council %q: %v", council.Title, err)
+		docs = nil
+	}
+
+	for _, agentID := range council.Tags {
+		var agentName, personaName string
+		if err := m.db.QueryRowContext(ctx,
+			`SELECT name, COALESCE(persona_name, '') FROM users WHERE id = $1 AND kind = 'agent'`,
+			agentID,
+		).Scan(&agentName, &personaName); err != nil {
+			log.Printf("mind: council %q: agent %s not found: %v", council.Title, agentID, err)
+			continue
+		}
+
+		systemPrompt := m.buildCouncilPrompt(council, personaName, docs)
+		messages := []claudeMessage{{
+			Role:    "user",
+			Content: fmt.Sprintf("Question: %s\n\n%s", council.Title, council.Body),
+		}}
+
+		response, err := m.callClaude(ctx, systemPrompt, messages)
+		if err != nil {
+			log.Printf("mind: council %q: %s call failed: %v", council.Title, agentName, err)
+			continue
+		}
+
+		node, err := m.store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    spaceID,
+			ParentID:   council.ID,
+			Kind:       KindComment,
+			Body:       response,
+			Author:     agentName,
+			AuthorID:   agentID,
+			AuthorKind: "agent",
+		})
+		if err != nil {
+			log.Printf("mind: council %q: create response for %s: %v", council.Title, agentName, err)
+			continue
+		}
+
+		m.store.RecordOp(ctx, spaceID, node.ID, agentName, agentID, "respond", nil)
+		log.Printf("mind: council %q: %s responded (node %s)", council.Title, agentName, node.ID)
+	}
+}
+
+// buildCouncilPrompt builds the system prompt for a council response.
+// Uses the agent's persona prompt if available, otherwise falls back to mindSoul.
+func (m *Mind) buildCouncilPrompt(council *Node, personaName string, docs []Node) string {
+	var sys strings.Builder
+
+	if personaName != "" {
+		if persona := m.store.GetAgentPersona(context.Background(), personaName); persona != nil {
+			sys.WriteString(persona.Prompt)
+		} else {
+			sys.WriteString(mindSoul)
+		}
+	} else {
+		sys.WriteString(mindSoul)
+	}
+
+	sys.WriteString("\n== ROLE ==\n")
+	sys.WriteString("You are participating in a council session. A question has been posed and multiple agents are each providing their own perspective.\n")
+	sys.WriteString("Be direct and concise. Share your unique viewpoint.\n")
+
+	if len(docs) > 0 {
+		sys.WriteString("\n== SPACE DOCUMENTS ==\n")
+		sys.WriteString("The following documents are available as grounding context:\n\n")
+		for _, doc := range docs {
+			sys.WriteString(fmt.Sprintf("### %s\n%s\n\n", doc.Title, truncateStr(doc.Body, 1000)))
+		}
+	}
+
+	sys.WriteString("\n== COUNCIL QUESTION ==\n")
+	sys.WriteString(fmt.Sprintf("Title: %s\n", council.Title))
+	if council.Body != "" {
+		sys.WriteString(fmt.Sprintf("Context: %s\n", council.Body))
+	}
+
+	return sys.String()
+}
+
 // OnTaskAssigned is called when a task is assigned to a user.
 // If the assignee is an agent, the Mind works on the task: decomposes it,
 // creates subtasks, comments with progress, and completes when done.

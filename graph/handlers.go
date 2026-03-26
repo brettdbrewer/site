@@ -3223,6 +3223,55 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)
 
+	case "convene":
+		title := strings.TrimSpace(r.FormValue("title"))
+		body := strings.TrimSpace(r.FormValue("body"))
+		if title == "" {
+			http.Error(w, "title required", http.StatusBadRequest)
+			return
+		}
+		// Resolve agent IDs from the agents field (comma-separated names or IDs).
+		var agentIDs []string
+		if a := strings.TrimSpace(r.FormValue("agents")); a != "" {
+			for _, name := range strings.Split(a, ",") {
+				name = strings.TrimSpace(name)
+				if name == "" {
+					continue
+				}
+				if resolved := h.store.ResolveUserID(ctx, name); resolved != "" {
+					agentIDs = append(agentIDs, resolved)
+				} else {
+					agentIDs = append(agentIDs, name)
+				}
+			}
+		}
+		node, err := h.store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    space.ID,
+			Kind:       KindCouncil,
+			Title:      title,
+			Body:       body,
+			Author:     actor,
+			AuthorID:   actorID,
+			AuthorKind: actorKind,
+			Tags:       agentIDs,
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "convene", nil)
+
+		// Trigger Mind to call each tagged agent persona asynchronously.
+		if h.mind != nil {
+			go h.mind.OnCouncilConvened(space.ID, space.Slug, node)
+		}
+
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "convene"})
+			return
+		}
+		http.Redirect(w, r, fmt.Sprintf("/app/%s/council/%s", space.Slug, node.ID), http.StatusSeeOther)
+
 	default:
 		http.Error(w, fmt.Sprintf("unknown op: %s", op), http.StatusBadRequest)
 	}
