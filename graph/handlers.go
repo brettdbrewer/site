@@ -70,7 +70,6 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /app/{slug}/delete", h.writeWrap(h.handleDeleteSpace))
 
 	// Space invites.
-	mux.Handle("POST /app/{slug}/invite", h.writeWrap(h.handleCreateInvite))
 	mux.Handle("POST /app/{slug}/invites", h.writeWrap(h.handleCreateInviteHTMX))
 	mux.Handle("DELETE /app/{slug}/invites/{token}", h.writeWrap(h.handleRevokeInvite))
 	mux.Handle("GET /join/{token}", h.writeWrap(h.handleJoinViaInvite))
@@ -542,34 +541,6 @@ func (h *Handlers) handleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/app", http.StatusSeeOther)
-}
-
-func (h *Handlers) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
-	space, err := h.spaceOwnerOnly(r)
-	if errors.Is(err, ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Reuse existing token if one exists.
-	token := h.store.GetInviteToken(r.Context(), space.ID)
-	if token == "" {
-		token, err = h.store.CreateInvite(r.Context(), space.ID, h.userID(r))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if wantsJSON(r) {
-		writeJSON(w, http.StatusOK, map[string]string{"token": token})
-		return
-	}
-	http.Redirect(w, r, "/app/"+space.Slug+"/settings?invite="+token, http.StatusSeeOther)
 }
 
 // handleCreateInviteHTMX handles HTMX POST /app/{slug}/invites — creates a new invite code

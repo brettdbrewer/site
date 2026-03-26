@@ -1834,7 +1834,7 @@ func (s *Store) UseInviteCode(ctx context.Context, token, userID string) error {
 func (s *Store) ListInvites(ctx context.Context, spaceID string) ([]InviteCode, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT token, space_id, created_by, created_at, expires_at, max_uses, use_count
-		 FROM invites WHERE space_id = $1 ORDER BY created_at DESC`, spaceID)
+		 FROM invites WHERE space_id = $1 ORDER BY created_at DESC LIMIT 50`, spaceID)
 	if err != nil {
 		return nil, fmt.Errorf("list invites: %w", err)
 	}
