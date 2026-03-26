@@ -5,6 +5,78 @@ import (
 	"time"
 )
 
+// QuestionItem is a question with its first agent answer for the public Q&A list.
+type QuestionItem struct {
+	ID               string
+	Title            string
+	Body             string // optional context
+	Answer           string // empty if awaiting answer
+	AnswerAuthorKind string // "agent" | "human" | ""
+	SpaceSlug        string
+	SpaceName        string
+	CreatedAt        time.Time
+}
+
+// QuestionList renders a list of questions with inline answers or an "Awaiting answer" placeholder.
+templ QuestionList(questions []QuestionItem) {
+	<div class="space-y-3">
+		for _, q := range questions {
+			<div class="bg-surface rounded-lg border border-edge p-4 space-y-3">
+				<div class="flex items-start gap-3">
+					<svg class="w-4 h-4 text-brand flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<div class="flex-1 min-w-0">
+						<a href={ templ.SafeURL(fmt.Sprintf("/app/%s/questions/%s", q.SpaceSlug, q.ID)) }
+							class="font-medium text-warm hover:text-brand transition-colors">{ q.Title }</a>
+						if q.Body != "" {
+							<p class="text-xs text-warm-muted mt-1 line-clamp-2">{ q.Body }</p>
+						}
+						<div class="flex items-center gap-3 mt-1 text-xs text-warm-faint">
+							if q.SpaceName != "" {
+								<span class="px-1.5 py-0.5 rounded bg-elevated text-warm-muted">{ q.SpaceName }</span>
+							}
+							<span>{ q.CreatedAt.Format("Jan 2, 2006") }</span>
+						</div>
+					</div>
+				</div>
+				if q.Answer != "" {
+					<div class={ "ml-7 rounded-lg border p-3", templ.KV("bg-violet-950/20 border-violet-500/20", q.AnswerAuthorKind == "agent"), templ.KV("bg-elevated border-edge", q.AnswerAuthorKind != "agent") }>
+						if q.AnswerAuthorKind == "agent" {
+							<span class="inline-flex items-center gap-1 text-[10px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5 mb-2">
+								<svg class="w-2 h-2" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
+								agent
+							</span>
+						}
+						<p class="text-sm text-warm-secondary leading-relaxed">{ q.Answer }</p>
+					</div>
+				} else {
+					<p class="ml-7 text-xs text-warm-faint italic">Awaiting answer…</p>
+				}
+			</div>
+		}
+		if len(questions) == 0 {
+			<p class="text-center text-sm text-warm-faint py-8">No questions yet.</p>
+		}
+	</div>
+}
+
+// AskQuestion renders a form that creates a question via the intend op.
+templ AskQuestion(spaceSlug string) {
+	<form method="POST" action={ templ.SafeURL("/app/" + spaceSlug + "/op") }
+		class="bg-surface rounded-lg border border-edge p-4 space-y-3">
+		<input type="hidden" name="op" value="intend"/>
+		<input type="hidden" name="kind" value="question"/>
+		<input type="text" name="title" placeholder="What's your question?" required
+			class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-warm placeholder-warm-faint"/>
+		<textarea name="description" placeholder="Add context or details (optional)" rows="3"
+			class="w-full text-sm px-3 py-2 bg-elevated border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none text-warm placeholder-warm-faint"></textarea>
+		<div class="flex justify-end">
+			<button type="submit" class="px-4 py-1.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Ask question</button>
+		</div>
+	</form>
+}
+
 // KnowledgeClaim is a claim for the public knowledge page.
 type KnowledgeClaim struct {
 	ID         string

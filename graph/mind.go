@@ -81,7 +81,7 @@ func (m *Mind) OnMessage(spaceID, spaceSlug string, convo *Node, senderID string
 	}
 }
 
-// OnQuestionAsked is called when a KindQuestion is created via the express op.
+// OnQuestionAsked is called when a KindQuestion is created via the express or intend op.
 // It queries the space's documents for context and generates an agent answer asynchronously.
 func (m *Mind) OnQuestionAsked(spaceID, spaceSlug string, question *Node) {
 	ctx, cancel := context.WithTimeout(context.Background(), m.replyTimeout)

@@ -2009,6 +2009,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			go h.mind.OnTaskAssigned(space.ID, space.Slug, node, assigneeID)
 		}
 
+		// Trigger Mind to auto-answer questions created via intend.
+		if h.mind != nil && nodeKind == KindQuestion {
+			go h.mind.OnQuestionAsked(space.ID, space.Slug, node)
+		}
+
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusCreated, map[string]any{"node": node, "op": "intend"})
 			return
