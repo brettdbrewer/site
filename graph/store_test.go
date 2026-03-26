@@ -1353,3 +1353,66 @@ func TestInviteCode(t *testing.T) {
 		}
 	})
 }
+
+func TestListInvitesAndRevoke(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, err := store.CreateSpace(ctx, "list-invites-test", "List Invites Test", "", "owner-1", "project", "private")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	t.Run("empty_list", func(t *testing.T) {
+		codes, err := store.ListInvites(ctx, space.ID)
+		if err != nil {
+			t.Fatalf("list invites: %v", err)
+		}
+		if len(codes) != 0 {
+			t.Errorf("expected 0 invites, got %d", len(codes))
+		}
+	})
+
+	t.Run("lists_created_invites", func(t *testing.T) {
+		tok1, err := store.CreateInviteCode(ctx, space.ID, "owner-1", nil, 0)
+		if err != nil {
+			t.Fatalf("create invite 1: %v", err)
+		}
+		tok2, err := store.CreateInviteCode(ctx, space.ID, "owner-1", nil, 0)
+		if err != nil {
+			t.Fatalf("create invite 2: %v", err)
+		}
+		t.Cleanup(func() {
+			store.RevokeInvite(ctx, tok1)
+			store.RevokeInvite(ctx, tok2)
+		})
+
+		codes, err := store.ListInvites(ctx, space.ID)
+		if err != nil {
+			t.Fatalf("list invites: %v", err)
+		}
+		if len(codes) < 2 {
+			t.Errorf("expected at least 2 invites, got %d", len(codes))
+		}
+	})
+
+	t.Run("revoke_removes_invite", func(t *testing.T) {
+		tok, err := store.CreateInviteCode(ctx, space.ID, "owner-1", nil, 0)
+		if err != nil {
+			t.Fatalf("create invite: %v", err)
+		}
+
+		if err := store.RevokeInvite(ctx, tok); err != nil {
+			t.Fatalf("revoke invite: %v", err)
+		}
+
+		got, err := store.GetInviteCode(ctx, tok)
+		if err != nil {
+			t.Fatalf("get invite after revoke: %v", err)
+		}
+		if got != nil {
+			t.Error("expected nil after revoke, got non-nil")
+		}
+	})
+}

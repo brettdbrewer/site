@@ -822,3 +822,94 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		}
 	})
 }
+
+func TestHandlerCreateInviteHTMX(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	space, err := store.CreateSpace(t.Context(), "htmx-invite-test", "HTMX Invite Test", "", "test-user-1", "project", "private")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	t.Run("owner_creates_invite_returns_html", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/app/htmx-invite-test/invites", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+		}
+		body := w.Body.String()
+		if body == "" {
+			t.Error("expected HTML fragment in response body, got empty")
+		}
+
+		// Verify an invite was actually created in the store.
+		invites, err := store.ListInvites(t.Context(), space.ID)
+		if err != nil {
+			t.Fatalf("list invites: %v", err)
+		}
+		if len(invites) == 0 {
+			t.Error("expected invite to be created in store")
+		}
+	})
+
+	t.Run("nonexistent_space_404", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/app/no-such-space/invites", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+		}
+	})
+}
+
+func TestHandlerRevokeInvite(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	space, err := store.CreateSpace(t.Context(), "revoke-invite-test", "Revoke Invite Test", "", "test-user-1", "project", "private")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	t.Run("revoke_existing_invite", func(t *testing.T) {
+		tok, err := store.CreateInviteCode(t.Context(), space.ID, "test-user-1", nil, 0)
+		if err != nil {
+			t.Fatalf("create invite: %v", err)
+		}
+
+		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/"+tok, nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+		}
+
+		// Verify it is gone from the store.
+		got, err := store.GetInviteCode(t.Context(), tok)
+		if err != nil {
+			t.Fatalf("get invite after revoke: %v", err)
+		}
+		if got != nil {
+			t.Error("expected invite to be deleted, still present")
+		}
+	})
+
+	t.Run("revoke_nonexistent_token_404", func(t *testing.T) {
+		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/no-such-token", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+		}
+	})
+}

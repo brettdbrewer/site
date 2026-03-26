@@ -1,30 +1,30 @@
-# Build Report — Fix: invite handler correctness
+# Build Report — Fix: invite management UI (test coverage)
 
 ## Gap
-Critic review of commit `0d3001d` found four issues in the invite handlers.
+Critic review of commit 32b3763 flagged three issues:
+1. `ListInvites` missing LIMIT (BOUNDED invariant 13)
+2. Dead `POST /app/{slug}/invite` endpoint (old singular route)
+3. No tests for `ListInvites`, `RevokeInvite`, `handleCreateInviteHTMX`, `handleRevokeInvite`
+
+Issues 1 and 2 were already resolved in commit de4636a. This build addresses issue 3.
 
 ## Changes
 
-### `graph/handlers.go`
+### `graph/store_test.go`
+Added `TestListInvitesAndRevoke` with three sub-tests:
+- `empty_list` — verifies `ListInvites` returns empty slice for a fresh space
+- `lists_created_invites` — creates two invites, verifies both appear in the list
+- `revoke_removes_invite` — creates an invite, revokes it, verifies `GetInviteCode` returns nil
 
-**Issue 1 — `UseInviteCode` error ignored**
-- Added error check: `if err := h.store.UseInviteCode(...); err != nil { log.Printf(...) }`
-- Log and continue (join already succeeded; can't roll back, but error is now surfaced)
+### `graph/handlers_test.go`
+Added `TestHandlerCreateInviteHTMX` with two sub-tests:
+- `owner_creates_invite_returns_html` — POST creates invite, returns 200 + HTML fragment, verifies store has the invite
+- `nonexistent_space_404` — POST to unknown slug returns 404
 
-**Issue 2 — `readWrap` for state-mutating handler**
-- Kept `readWrap` intentionally; added comment explaining why:
-  `readWrap` is required so the handler can redirect with `?next=` after the auth check, preserving the invite URL across the login flow. `writeWrap` (`RequireAuth`) redirects to `/auth/login` without `?next=`, which would lose the invite URL.
-
-**Issue 3 — Naming inconsistency in revoke handler**
-- Renamed `token` → `code` in `handleRevokeInvite` (extracted from `r.PathValue("id")`)
-- Fixed handler comment: `{token}` → `{id}` to match route
-- Added clarifying comment: `{id}` carries the token string value (same as `InviteCode.Token` sent by template)
-
-**Issue 4 — Magic string `"anonymous"`**
-- Defined `const anonUserID = "anonymous"` at package level
-- Replaced all comparison literals in `handlers.go` with `anonUserID` (7 sites)
-- `main.go` literals left unchanged (different package; pre-existing, not part of this commit's scope)
+Added `TestHandlerRevokeInvite` with two sub-tests:
+- `revoke_existing_invite` — DELETE removes token, returns 200, verifies store deletion
+- `revoke_nonexistent_token_404` — DELETE with unknown token returns 404
 
 ## Verification
-- `go.exe build -buildvcs=false ./...` — no errors
-- `go.exe test -buildvcs=false -short ./...` — all pass
+- `go.exe build -buildvcs=false ./...` — clean
+- `go.exe test ./...` — all pass (DB-dependent tests skip cleanly without DATABASE_URL, consistent with existing pattern)
