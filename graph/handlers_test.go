@@ -696,3 +696,47 @@ func TestHandlerKnowledgeLens(t *testing.T) {
 		t.Errorf("knowledge lens: questions count %d exceeds BOUNDED limit %d", len(questions), knowledgeLensLimit)
 	}
 }
+
+// TestHandlerKnowledgeTabs verifies that the /knowledge route handles ?tab=docs
+// and ?tab=qa routing correctly — returns 200 and no server errors.
+func TestHandlerKnowledgeTabs(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(t.Context(), "knowledge-tabs-test"); old != nil {
+		store.DeleteSpace(t.Context(), old.ID)
+	}
+	space, err := store.CreateSpace(t.Context(), "knowledge-tabs-test", "Knowledge Tabs Test", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	// Seed a document and a question.
+	store.CreateNode(t.Context(), CreateNodeParams{
+		SpaceID: space.ID, Kind: KindDocument, Title: "Test Doc",
+		Body: "Content.", Author: "Tester", AuthorID: "test-user-1",
+	})
+	store.CreateNode(t.Context(), CreateNodeParams{
+		SpaceID: space.ID, Kind: KindQuestion, Title: "Test Question",
+		Author: "Tester", AuthorID: "test-user-1",
+	})
+
+	for _, tab := range []string{"docs", "qa", "claims", ""} {
+		tab := tab
+		t.Run("tab_"+tab, func(t *testing.T) {
+			path := "/app/knowledge-tabs-test/knowledge"
+			if tab != "" {
+				path += "?tab=" + tab
+			}
+			req := httptest.NewRequest("GET", path, nil)
+			// HTML request — no application/json Accept header.
+			w := httptest.NewRecorder()
+			mux.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Errorf("tab=%q: status = %d, want %d", tab, w.Code, http.StatusOK)
+			}
+		})
+	}
+}

@@ -1066,6 +1066,114 @@ func TestGetAgentPersonasForConversations(t *testing.T) {
 	}
 }
 
+// TestListDocuments verifies that ListDocuments returns only KindDocument nodes
+// and that the limit parameter is enforced (Invariant 13: BOUNDED).
+func TestListDocuments(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, err := store.CreateSpace(ctx, "list-docs-limit-test", "List Docs Test", "", "owner", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	// Seed 3 documents and 1 question (should not appear in document results).
+	for i := range 3 {
+		if _, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID: space.ID, Kind: KindDocument,
+			Title: fmt.Sprintf("Doc %d", i), Author: "Tester", AuthorID: "owner",
+		}); err != nil {
+			t.Fatalf("create doc %d: %v", i, err)
+		}
+	}
+	if _, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: space.ID, Kind: KindQuestion,
+		Title: "A question (should not appear in docs)", Author: "Tester", AuthorID: "owner",
+	}); err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+
+	t.Run("returns_only_documents", func(t *testing.T) {
+		docs, err := store.ListDocuments(ctx, space.ID, 50)
+		if err != nil {
+			t.Fatalf("ListDocuments: %v", err)
+		}
+		if len(docs) != 3 {
+			t.Errorf("got %d docs, want 3", len(docs))
+		}
+		for _, d := range docs {
+			if d.Kind != KindDocument {
+				t.Errorf("got kind %q, want %q", d.Kind, KindDocument)
+			}
+		}
+	})
+
+	t.Run("limit_enforced", func(t *testing.T) {
+		docs, err := store.ListDocuments(ctx, space.ID, 2)
+		if err != nil {
+			t.Fatalf("ListDocuments with limit: %v", err)
+		}
+		if len(docs) > 2 {
+			t.Errorf("got %d docs with limit=2, want at most 2 (Invariant 13: BOUNDED)", len(docs))
+		}
+	})
+}
+
+// TestListQuestions verifies that ListQuestions returns only KindQuestion nodes
+// and that the limit parameter is enforced (Invariant 13: BOUNDED).
+func TestListQuestions(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	space, err := store.CreateSpace(ctx, "list-questions-limit-test", "List Questions Test", "", "owner", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	// Seed 3 questions and 1 document (should not appear in question results).
+	for i := range 3 {
+		if _, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID: space.ID, Kind: KindQuestion,
+			Title: fmt.Sprintf("Question %d", i), Author: "Tester", AuthorID: "owner",
+		}); err != nil {
+			t.Fatalf("create question %d: %v", i, err)
+		}
+	}
+	if _, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID: space.ID, Kind: KindDocument,
+		Title: "A document (should not appear in questions)", Author: "Tester", AuthorID: "owner",
+	}); err != nil {
+		t.Fatalf("create document: %v", err)
+	}
+
+	t.Run("returns_only_questions", func(t *testing.T) {
+		questions, err := store.ListQuestions(ctx, space.ID, 50)
+		if err != nil {
+			t.Fatalf("ListQuestions: %v", err)
+		}
+		if len(questions) != 3 {
+			t.Errorf("got %d questions, want 3", len(questions))
+		}
+		for _, q := range questions {
+			if q.Kind != KindQuestion {
+				t.Errorf("got kind %q, want %q", q.Kind, KindQuestion)
+			}
+		}
+	})
+
+	t.Run("limit_enforced", func(t *testing.T) {
+		questions, err := store.ListQuestions(ctx, space.ID, 2)
+		if err != nil {
+			t.Fatalf("ListQuestions with limit: %v", err)
+		}
+		if len(questions) > 2 {
+			t.Errorf("got %d questions with limit=2, want at most 2 (Invariant 13: BOUNDED)", len(questions))
+		}
+	})
+}
+
 // TestListHiveActivity_FiltersAndLimits verifies that ListHiveActivity respects
 // the author_id filter and the LIMIT parameter (invariant 13: BOUNDED).
 func TestListHiveActivity_FiltersAndLimits(t *testing.T) {

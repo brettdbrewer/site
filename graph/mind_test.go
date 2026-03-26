@@ -749,6 +749,71 @@ func TestReplyToNoDocumentsNoSpaceKnowledge(t *testing.T) {
 	}
 }
 
+// TestMindOnQuestionAsked_WithAgent verifies that OnQuestionAsked emits an answer
+// op (creates a KindComment child) when an agent is available (Invariant VERIFIED).
+func TestMindOnQuestionAsked_WithAgent(t *testing.T) {
+	db, store := testDB(t)
+	ctx := t.Context()
+	mind := NewMind(db, store, "fake-token")
+
+	agentName := "QATestAgent"
+	agentID := "qa-test-agent-id"
+
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID)
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+		agentID, "agent:"+agentName, agentName+"@test.lovyou.ai", agentName)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	t.Cleanup(func() { db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID) })
+
+	space, err := store.CreateSpace(ctx, "question-asked-with-agent-test", "QA With Agent Test", "", "owner", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	question, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:    space.ID,
+		Kind:       KindQuestion,
+		Title:      "How does trust scoring work?",
+		Body:       "I want to understand the trust model.",
+		Author:     "Tester",
+		AuthorID:   "test-human-id",
+		AuthorKind: "human",
+	})
+	if err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+
+	// Stub callClaude to return a canned answer without a real Claude call.
+	mind.callClaudeOverride = func(_ context.Context, _ string, _ []claudeMessage) (string, error) {
+		return "Trust scores range from 0.0 to 1.0 based on endorsements.", nil
+	}
+
+	mind.OnQuestionAsked(space.ID, space.Slug, question)
+
+	// Verify an answer node was created as a child of the question.
+	answers, err := store.ListNodes(ctx, ListNodesParams{SpaceID: space.ID, ParentID: question.ID})
+	if err != nil {
+		t.Fatalf("list answers: %v", err)
+	}
+	if len(answers) == 0 {
+		t.Fatal("expected at least 1 answer node, got 0")
+	}
+	answer := answers[0]
+	if answer.Kind != KindComment {
+		t.Errorf("answer kind = %q, want %q", answer.Kind, KindComment)
+	}
+	if answer.AuthorID != agentID {
+		t.Errorf("answer authorID = %q, want %q", answer.AuthorID, agentID)
+	}
+	if answer.Body == "" {
+		t.Error("answer body is empty")
+	}
+}
+
 // TestMindOnQuestionAsked_NoAgent verifies graceful no-op when no agent exists.
 func TestMindOnQuestionAsked_NoAgent(t *testing.T) {
 	db, store := testDB(t)
