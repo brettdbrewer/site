@@ -2,11 +2,13 @@ package graph
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lovyou-ai/site/auth"
 )
@@ -758,7 +760,8 @@ func TestHandlerJoinViaInvite(t *testing.T) {
 		})
 	}
 
-	space, err := store.CreateSpace(t.Context(), "join-test-space", "Join Test", "", "owner-1", "project", "private")
+	slug := fmt.Sprintf("join-test-%d", time.Now().UnixNano())
+	space, err := store.CreateSpace(t.Context(), slug, "Join Test", "", "owner-1", "project", "private")
 	if err != nil {
 		t.Fatalf("create space: %v", err)
 	}
@@ -828,14 +831,15 @@ func TestHandlerCreateInviteHTMX(t *testing.T) {
 	mux := http.NewServeMux()
 	h.Register(mux)
 
-	space, err := store.CreateSpace(t.Context(), "htmx-invite-test", "HTMX Invite Test", "", "test-user-1", "project", "private")
+	slug := fmt.Sprintf("htmx-invite-%d", time.Now().UnixNano())
+	space, err := store.CreateSpace(t.Context(), slug, "HTMX Invite Test", "", "test-user-1", "project", "private")
 	if err != nil {
 		t.Fatalf("create space: %v", err)
 	}
 	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
 
 	t.Run("owner_creates_invite_returns_html", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/app/htmx-invite-test/invites", nil)
+		req := httptest.NewRequest("POST", "/app/"+slug+"/invites", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -879,7 +883,7 @@ func TestHandlerCreateInviteHTMX(t *testing.T) {
 		mux2 := http.NewServeMux()
 		h2.Register(mux2)
 
-		req := httptest.NewRequest("POST", "/app/htmx-invite-test/invites", nil)
+		req := httptest.NewRequest("POST", "/app/"+slug+"/invites", nil)
 		w := httptest.NewRecorder()
 		mux2.ServeHTTP(w, req)
 
@@ -898,7 +902,7 @@ func TestHandlerCreateInviteHTMX(t *testing.T) {
 		mux2 := http.NewServeMux()
 		h2.Register(mux2)
 
-		req := httptest.NewRequest("POST", "/app/htmx-invite-test/invites", nil)
+		req := httptest.NewRequest("POST", "/app/"+slug+"/invites", nil)
 		w := httptest.NewRecorder()
 		mux2.ServeHTTP(w, req)
 
@@ -913,7 +917,8 @@ func TestHandlerRevokeInvite(t *testing.T) {
 	mux := http.NewServeMux()
 	h.Register(mux)
 
-	space, err := store.CreateSpace(t.Context(), "revoke-invite-test", "Revoke Invite Test", "", "test-user-1", "project", "private")
+	slug := fmt.Sprintf("revoke-invite-%d", time.Now().UnixNano())
+	space, err := store.CreateSpace(t.Context(), slug, "Revoke Invite Test", "", "test-user-1", "project", "private")
 	if err != nil {
 		t.Fatalf("create space: %v", err)
 	}
@@ -925,7 +930,7 @@ func TestHandlerRevokeInvite(t *testing.T) {
 			t.Fatalf("create invite: %v", err)
 		}
 
-		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/"+tok, nil)
+		req := httptest.NewRequest("DELETE", "/app/"+slug+"/invites/"+tok, nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -944,7 +949,7 @@ func TestHandlerRevokeInvite(t *testing.T) {
 	})
 
 	t.Run("revoke_nonexistent_token_404", func(t *testing.T) {
-		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/no-such-token", nil)
+		req := httptest.NewRequest("DELETE", "/app/"+slug+"/invites/no-such-token", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -971,7 +976,7 @@ func TestHandlerRevokeInvite(t *testing.T) {
 		mux2 := http.NewServeMux()
 		h2.Register(mux2)
 
-		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/"+tok, nil)
+		req := httptest.NewRequest("DELETE", "/app/"+slug+"/invites/"+tok, nil)
 		w := httptest.NewRecorder()
 		mux2.ServeHTTP(w, req)
 
@@ -996,7 +1001,7 @@ func TestHandlerRevokeInvite(t *testing.T) {
 		mux2 := http.NewServeMux()
 		h2.Register(mux2)
 
-		req := httptest.NewRequest("DELETE", "/app/revoke-invite-test/invites/"+tok, nil)
+		req := httptest.NewRequest("DELETE", "/app/"+slug+"/invites/"+tok, nil)
 		w := httptest.NewRecorder()
 		mux2.ServeHTTP(w, req)
 
