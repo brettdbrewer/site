@@ -17,6 +17,9 @@ import (
 	"github.com/lovyou-ai/site/auth"
 )
 
+// anonUserID is the sentinel value returned by userID() when no session exists.
+const anonUserID = "anonymous"
+
 // ViewUser holds user info for templates.
 type ViewUser struct {
 	ID          string
@@ -145,7 +148,7 @@ func (h *Handlers) viewUser(r *http.Request) ViewUser {
 func (h *Handlers) userID(r *http.Request) string {
 	u := auth.UserFromContext(r.Context())
 	if u == nil {
-		return "anonymous"
+		return anonUserID
 	}
 	return u.ID
 }
@@ -153,7 +156,7 @@ func (h *Handlers) userID(r *http.Request) string {
 func (h *Handlers) userName(r *http.Request) string {
 	u := auth.UserFromContext(r.Context())
 	if u == nil {
-		return "anonymous"
+		return anonUserID
 	}
 	return u.Name
 }
@@ -168,7 +171,7 @@ func (h *Handlers) userKind(r *http.Request) string {
 
 // notify creates a notification for a user (skips if targetID is the actor).
 func (h *Handlers) notify(ctx context.Context, targetID, actorName, opID, spaceID, message string) {
-	if targetID == "" || targetID == "anonymous" {
+	if targetID == "" || targetID == anonUserID {
 		return
 	}
 	h.store.CreateNotification(ctx, targetID, opID, spaceID, actorName+": "+message)
@@ -186,7 +189,7 @@ func (h *Handlers) spaceFromRequest(r *http.Request) (*Space, error) {
 	if space.OwnerID == uid {
 		return space, nil
 	}
-	if space.Visibility == VisibilityPublic && uid != "anonymous" {
+	if space.Visibility == VisibilityPublic && uid != anonUserID {
 		return space, nil
 	}
 	return nil, ErrNotFound
@@ -217,7 +220,7 @@ func (h *Handlers) spaceForRead(r *http.Request) (*Space, bool, error) {
 	if isOwner || space.Visibility == VisibilityPublic {
 		return space, isOwner, nil
 	}
-	if uid != "anonymous" && h.store.IsMember(r.Context(), space.ID, uid) {
+	if uid != anonUserID && h.store.IsMember(r.Context(), space.ID, uid) {
 		return space, false, nil
 	}
 	return nil, false, ErrNotFound
@@ -566,7 +569,8 @@ func (h *Handlers) handleCreateInviteHTMX(w http.ResponseWriter, r *http.Request
 	InviteCodeRow(inv, space.Slug).Render(r.Context(), w)
 }
 
-// handleRevokeInvite handles DELETE /app/{slug}/invites/{token} — removes an invite code.
+// handleRevokeInvite handles DELETE /app/{slug}/invites/{id} — removes an invite code.
+// {id} carries the token string (same value as InviteCode.Token sent by the template).
 func (h *Handlers) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 	space, err := h.spaceOwnerOnly(r)
 	if errors.Is(err, ErrNotFound) {
@@ -578,15 +582,15 @@ func (h *Handlers) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := r.PathValue("id")
+	code := r.PathValue("id")
 	// Verify the token belongs to this space before deleting.
-	spaceID := h.store.GetInviteSpaceID(r.Context(), token)
+	spaceID := h.store.GetInviteSpaceID(r.Context(), code)
 	if spaceID != space.ID {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
-	if err := h.store.RevokeInvite(r.Context(), token); err != nil {
+	if err := h.store.RevokeInvite(r.Context(), code); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -597,7 +601,9 @@ func (h *Handlers) handleJoinViaInvite(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
 
 	uid := h.userID(r)
-	if uid == "anonymous" {
+	if uid == anonUserID {
+		// Use readWrap (not writeWrap) so we can redirect with ?next= here,
+		// preserving the invite URL across the login flow.
 		next := url.QueryEscape(r.URL.Path)
 		http.Redirect(w, r, "/auth/login?next="+next, http.StatusSeeOther)
 		return
@@ -614,7 +620,9 @@ func (h *Handlers) handleJoinViaInvite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.store.UseInviteCode(r.Context(), code, uid)
+	if err := h.store.UseInviteCode(r.Context(), code, uid); err != nil {
+		log.Printf("UseInviteCode %s user %s: %v", code, uid, err)
+	}
 	h.store.RecordOp(r.Context(), inv.SpaceID, "", uname, uid, "join", nil)
 
 	space, err := h.store.GetSpaceByID(r.Context(), inv.SpaceID)
@@ -665,7 +673,7 @@ func (h *Handlers) handleSpaceDefault(w http.ResponseWriter, r *http.Request) {
 
 	members, _ := h.store.ListMembers(ctx, space.ID, 10)
 	isMember := h.store.IsMember(ctx, space.ID, uid)
-	loggedIn := uid != "anonymous"
+	loggedIn := uid != anonUserID
 	SpaceOverview(*space, spaces, pinned, recentOps, h.viewUser(r), isOwner,
 		memberCount, openTasks, activeTasks, doneTasks, members, isMember, loggedIn).Render(ctx, w)
 }
@@ -749,7 +757,7 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 
 	// Getting started checklist: show for authenticated users in new spaces (<1 hour old) that haven't dismissed.
 	showChecklist := false
-	if h.userID(r) != "anonymous" && time.Since(space.CreatedAt) < time.Hour {
+	if h.userID(r) != anonUserID && time.Since(space.CreatedAt) < time.Hour {
 		if _, err := r.Cookie("checklist_" + space.ID); err != nil {
 			showChecklist = true
 		}
@@ -773,7 +781,7 @@ func (h *Handlers) handleBoard(w http.ResponseWriter, r *http.Request) {
 	uid := h.userID(r)
 	showWelcome := false
 	var welcomeMembers []SpaceMember
-	if uid != "anonymous" && uid != space.OwnerID && h.store.IsMember(r.Context(), space.ID, uid) {
+	if uid != anonUserID && uid != space.OwnerID && h.store.IsMember(r.Context(), space.ID, uid) {
 		showWelcome = h.store.MarkWelcomed(r.Context(), space.ID, uid)
 	}
 	if showWelcome {
