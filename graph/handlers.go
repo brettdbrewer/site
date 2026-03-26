@@ -3467,11 +3467,7 @@ func (h *Handlers) handleHive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	stats, err := h.store.GetHiveStats(ctx, agentID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	stats := computeHiveStats(posts)
 	roles := computePipelineRoles(posts)
 	currentTask, err := h.store.GetHiveCurrentTask(ctx, agentID)
 	if err != nil {

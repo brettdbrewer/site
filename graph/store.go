@@ -2151,17 +2151,6 @@ func (s *Store) GetHiveAgentID(ctx context.Context) string {
 	return id
 }
 
-// GetHiveStats returns aggregated cost metrics for hive agent posts.
-// When actorID is empty, metrics are computed across all agent posts.
-// BOUNDED: queries at most maxHivePosts posts (defined in handlers.go).
-func (s *Store) GetHiveStats(ctx context.Context, actorID string) (HiveStats, error) {
-	posts, err := s.ListHiveActivity(ctx, actorID, maxHivePosts)
-	if err != nil {
-		return HiveStats{}, fmt.Errorf("get hive stats: %w", err)
-	}
-	return computeHiveStats(posts), nil
-}
-
 // HasVoted checks if a user has already voted on a proposal.
 func (s *Store) HasVoted(ctx context.Context, nodeID, actorID string) bool {
 	var exists bool
