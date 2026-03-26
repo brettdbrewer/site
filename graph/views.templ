@@ -5491,6 +5491,9 @@ templ DocumentList(spaceSlug string, docs []Node, user ViewUser) {
 								<span class="font-medium text-sm text-warm">{ d.Title }</span>
 								@docStatusBadge(d.State)
 							</div>
+							if d.Body != "" {
+								<p class="text-xs text-warm-muted mt-1 line-clamp-2">{ truncate(d.Body, 200) }</p>
+							}
 							<div class="flex items-center gap-3 mt-1 text-xs text-warm-faint">
 								<span>{ d.Author }</span>
 								<span>{ d.CreatedAt.Format("Jan 2, 2006") }</span>
@@ -5554,7 +5557,14 @@ templ knowledgeQATab(space Space, questions []Node, user ViewUser, searchQuery s
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 						</svg>
 						<div class="flex-1 min-w-0">
-							<h3 class="font-medium text-sm text-warm">{ q.Title }</h3>
+							<div class="flex items-center gap-2 flex-wrap">
+								<h3 class="font-medium text-sm text-warm">{ q.Title }</h3>
+								if q.ChildCount > 0 {
+									<span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Answered</span>
+								} else {
+									<span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">Awaiting</span>
+								}
+							</div>
 							if q.Body != "" {
 								<p class="text-xs text-warm-muted line-clamp-2 mt-1">{ truncate(q.Body, 150) }</p>
 							}

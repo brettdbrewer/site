@@ -746,6 +746,76 @@ func TestHandlerKnowledgeTabs(t *testing.T) {
 	}
 }
 
+// TestHandlerKnowledgeDocsTabRows confirms GET ?tab=docs returns 200 and
+// renders the seeded document title in the HTML body.
+func TestHandlerKnowledgeDocsTabRows(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(t.Context(), "knowledge-docs-rows-test"); old != nil {
+		store.DeleteSpace(t.Context(), old.ID)
+	}
+	space, err := store.CreateSpace(t.Context(), "knowledge-docs-rows-test", "Knowledge Docs Rows", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	store.CreateNode(t.Context(), CreateNodeParams{
+		SpaceID: space.ID, Kind: KindDocument, Title: "Unique Doc Row Title",
+		Body: "Excerpt content for the document row.", Author: "Tester", AuthorID: "test-user-1", AuthorKind: "human",
+	})
+
+	req := httptest.NewRequest("GET", "/app/knowledge-docs-rows-test/knowledge?tab=docs", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("docs tab: status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Unique Doc Row Title") {
+		t.Error("docs tab: seeded document title not found in HTML response")
+	}
+}
+
+// TestHandlerKnowledgeQATabRows confirms GET ?tab=qa returns 200 and renders
+// the seeded question title with an Answered or Awaiting badge in the HTML body.
+func TestHandlerKnowledgeQATabRows(t *testing.T) {
+	h, store, _ := testHandlers(t)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	if old, _ := store.GetSpaceBySlug(t.Context(), "knowledge-qa-rows-test"); old != nil {
+		store.DeleteSpace(t.Context(), old.ID)
+	}
+	space, err := store.CreateSpace(t.Context(), "knowledge-qa-rows-test", "Knowledge QA Rows", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	store.CreateNode(t.Context(), CreateNodeParams{
+		SpaceID: space.ID, Kind: KindQuestion, Title: "Unique QA Row Question",
+		Author: "Tester", AuthorID: "test-user-1", AuthorKind: "human",
+	})
+
+	req := httptest.NewRequest("GET", "/app/knowledge-qa-rows-test/knowledge?tab=qa", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("qa tab: status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Unique QA Row Question") {
+		t.Error("qa tab: seeded question title not found in HTML response")
+	}
+	if !strings.Contains(body, "Answered") && !strings.Contains(body, "Awaiting") {
+		t.Error("qa tab: neither Answered nor Awaiting badge found in HTML response")
+	}
+}
+
 func TestHandlerJoinViaInvite(t *testing.T) {
 	_, store := testDB(t)
 
