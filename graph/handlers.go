@@ -129,6 +129,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	// Hive dashboard — public, no auth required.
 	mux.HandleFunc("GET /hive", h.handleHive)
 	mux.HandleFunc("GET /hive/stats", h.handleHiveStats)
+	mux.HandleFunc("GET /hive/status", h.handleHiveStatus)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -3586,7 +3587,7 @@ func computeHiveStats(posts []Node) HiveStats {
 
 // PipelineRole holds display state for a pipeline role on the /hive dashboard.
 type PipelineRole struct {
-	Name       string    // "Scout", "Builder", "Critic"
+	Name       string    // "Scout", "Builder", "Critic", "Reflector"
 	LastActive time.Time // zero = never seen in fetched posts
 	Active     bool      // true = post within last 30 minutes
 }
@@ -3599,9 +3600,10 @@ var pipelineRoleDefs = []struct {
 	{"Scout", "[hive:scout]"},
 	{"Builder", "[hive:builder]"},
 	{"Critic", "[hive:critic]"},
+	{"Reflector", "[hive:reflector]"},
 }
 
-// computePipelineRoles extracts last-active timestamps for Scout, Builder, and Critic
+// computePipelineRoles extracts last-active timestamps for Scout, Builder, Critic, and Reflector
 // by scanning post titles for the standard [hive:role] prefix.
 func computePipelineRoles(posts []Node) []PipelineRole {
 	last := make(map[string]time.Time, len(pipelineRoleDefs))
@@ -3628,6 +3630,33 @@ func computePipelineRoles(posts []Node) []PipelineRole {
 	return roles
 }
 
+// maxHiveAgentTasks is the upper bound on open tasks shown on the /hive dashboard.
+// Invariant 13 (BOUNDED).
+const maxHiveAgentTasks = 10
+
+// parseIterFromPosts returns the highest iteration number found in post titles,
+// or 0 if none are found. Post titles use the format "[hive:role] iter N: ...".
+func parseIterFromPosts(posts []Node) int {
+	re := regexp.MustCompile(`\biter\s+(\d+)\b`)
+	best := 0
+	for _, p := range posts {
+		m := re.FindStringSubmatch(strings.ToLower(p.Title))
+		if len(m) < 2 {
+			continue
+		}
+		n := 0
+		for _, c := range m[1] {
+			if c >= '0' && c <= '9' {
+				n = n*10 + int(c-'0')
+			}
+		}
+		if n > best {
+			best = n
+		}
+	}
+	return best
+}
+
 // handleHive renders the public /hive dashboard showing agent posts and stats.
 func (h *Handlers) handleHive(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -3639,7 +3668,7 @@ func (h *Handlers) handleHive(w http.ResponseWriter, r *http.Request) {
 	}
 	stats := computeHiveStats(posts)
 	roles := computePipelineRoles(posts)
-	currentTask, err := h.store.GetHiveCurrentTask(ctx, agentID)
+	tasks, err := h.store.ListHiveAgentTasks(ctx, agentID, maxHiveAgentTasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -3649,7 +3678,35 @@ func (h *Handlers) handleHive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	HiveView(posts, stats, roles, currentTask, totalOps, lastActive, h.viewUser(r)).Render(ctx, w)
+	iterCount := parseIterFromPosts(posts)
+	HiveView(posts, stats, roles, tasks, totalOps, lastActive, iterCount, h.viewUser(r)).Render(ctx, w)
+}
+
+// handleHiveStatus renders the main content partial for HTMX polling (every 5s).
+// It re-fetches posts and tasks and returns the #hive-content element only,
+// with no surrounding HTML shell.
+func (h *Handlers) handleHiveStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	agentID := h.store.GetHiveAgentID(ctx)
+	posts, err := h.store.ListHiveActivity(ctx, agentID, maxHivePosts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	stats := computeHiveStats(posts)
+	roles := computePipelineRoles(posts)
+	tasks, err := h.store.ListHiveAgentTasks(ctx, agentID, maxHiveAgentTasks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	totalOps, lastActive, err := h.store.GetHiveTotals(ctx, agentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	iterCount := parseIterFromPosts(posts)
+	HiveStatusPartial(posts, stats, roles, tasks, totalOps, lastActive, iterCount).Render(ctx, w)
 }
 
 // handleHiveStats renders the live stats bar partial for HTMX polling.

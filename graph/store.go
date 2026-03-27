@@ -418,6 +418,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS persona_name TEXT;
 ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'context';
 ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS source_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS importance INT NOT NULL DEFAULT 5;
+ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS space_id TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_agent_memories_space ON agent_memories(space_id, user_id, persona);
 ALTER TABLE agent_personas ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS invite_uses (
@@ -2207,6 +2209,56 @@ func (s *Store) ListHiveActivity(ctx context.Context, authorID string, limit int
 	return nodes, rows.Err()
 }
 
+// ListHiveAgentTasks returns open tasks authored by agents, optionally scoped to
+// a specific actorID. limit must be > 0; defaults to 10. BOUNDED.
+func (s *Store) ListHiveAgentTasks(ctx context.Context, actorID string, limit int) ([]Node, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	const cols = `
+		SELECT n.id, n.space_id, COALESCE(n.parent_id, ''), n.kind, n.title, n.body,
+		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind,
+		       n.tags, n.pinned, n.due_date, n.created_at, n.updated_at, n.verdict, n.rating
+		FROM nodes n`
+	var rows *sql.Rows
+	var err error
+	if actorID != "" {
+		rows, err = s.db.QueryContext(ctx, cols+`
+			WHERE n.kind = 'task' AND n.state = 'open' AND n.author_id = $1
+			ORDER BY n.created_at DESC LIMIT $2`, actorID, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx, cols+`
+			WHERE n.kind = 'task' AND n.state = 'open' AND n.author_kind = 'agent'
+			ORDER BY n.created_at DESC LIMIT $1`, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list hive agent tasks: %w", err)
+	}
+	defer rows.Close()
+	var nodes []Node
+	for rows.Next() {
+		var n Node
+		var parentID sql.NullString
+		var dueDate sql.NullTime
+		if err := rows.Scan(
+			&n.ID, &n.SpaceID, &parentID, &n.Kind, &n.Title, &n.Body,
+			&n.State, &n.Priority, &n.Assignee, &n.AssigneeID, &n.Author, &n.AuthorID, &n.AuthorKind,
+			pq.Array(&n.Tags), &n.Pinned, &dueDate, &n.CreatedAt, &n.UpdatedAt, &n.Verdict, &n.Rating,
+		); err != nil {
+			return nil, fmt.Errorf("scan hive agent task: %w", err)
+		}
+		if parentID.Valid {
+			n.ParentID = parentID.String
+		}
+		if dueDate.Valid {
+			d := dueDate.Time
+			n.DueDate = &d
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes, rows.Err()
+}
+
 // GetHiveCurrentTask returns the most recent open task authored by the given actor.
 // If actorID is empty, falls back to matching any agent (author_kind = 'agent').
 // BOUNDED: at most 1 row.
@@ -3436,6 +3488,18 @@ func (s *Store) ListAgentPersonas(ctx context.Context) ([]AgentPersona, error) {
 // Agent Memories
 // ────────────────────────────────────────────────────────────────────
 
+// Memory is a stored memory record for an agent persona about a user.
+type Memory struct {
+	ID         string    `json:"id"`
+	SpaceID    string    `json:"space_id"`
+	UserID     string    `json:"user_id"`
+	Persona    string    `json:"persona"`
+	Content    string    `json:"content"`
+	Kind       string    `json:"kind"`
+	Importance int       `json:"importance"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 var validMemoryKinds = map[string]bool{
 	"context":    true,
 	"fact":       true,
@@ -3481,6 +3545,68 @@ func (s *Store) RecallForPersona(ctx context.Context, persona, userID string, li
 		if rows.Scan(&m) == nil {
 			memories = append(memories, m)
 		}
+	}
+	return memories, rows.Err()
+}
+
+// memoryPersonaUser is the sentinel persona value used for user-level memories
+// that are not tied to any specific agent persona.
+const memoryPersonaUser = "__user__"
+
+// RememberForUser stores a memory about a user that is not tied to any agent persona.
+// kind: "context" | "fact" | "preference"; importance: 1-10 (default 5).
+func (s *Store) RememberForUser(ctx context.Context, userID, kind, content, sourceID string, importance int) error {
+	return s.RememberForPersona(ctx, memoryPersonaUser, userID, kind, content, sourceID, importance)
+}
+
+// RecallForUser returns user-level memories not tied to any agent persona,
+// ordered by importance desc, then recency desc.
+func (s *Store) RecallForUser(ctx context.Context, userID string, limit int) ([]string, error) {
+	return s.RecallForPersona(ctx, memoryPersonaUser, userID, limit)
+}
+
+// RememberForUserInSpace stores a memory scoped to a specific space for a persona about a user.
+// kind: "context" | "fact" | "preference"; importance: 1-10 (default 5).
+func (s *Store) RememberForUserInSpace(ctx context.Context, spaceID, userID, persona, content, kind string, importance int) error {
+	if kind == "" {
+		kind = "context"
+	}
+	if !validMemoryKinds[kind] {
+		return fmt.Errorf("invalid memory kind %q: must be context, fact, or preference", kind)
+	}
+	if importance <= 0 || importance > 10 {
+		importance = 5
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO agent_memories (id, space_id, persona, user_id, memory, kind, source_id, importance)
+		 VALUES ($1, $2, $3, $4, $5, $6, '', $7)`,
+		newID(), spaceID, persona, userID, content, kind, importance)
+	return err
+}
+
+// RecallForUserInSpace returns memories for a persona about a user within a specific space,
+// ordered by importance DESC, created_at DESC. Returns Memory structs.
+func (s *Store) RecallForUserInSpace(ctx context.Context, spaceID, userID, persona string, limit int) ([]Memory, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, space_id, user_id, persona, memory, kind, importance, created_at
+		 FROM agent_memories
+		 WHERE space_id = $1 AND user_id = $2 AND persona = $3
+		 ORDER BY importance DESC, created_at DESC LIMIT $4`,
+		spaceID, userID, persona, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var memories []Memory
+	for rows.Next() {
+		var m Memory
+		if err := rows.Scan(&m.ID, &m.SpaceID, &m.UserID, &m.Persona, &m.Content, &m.Kind, &m.Importance, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		memories = append(memories, m)
 	}
 	return memories, rows.Err()
 }

@@ -137,6 +137,52 @@ func TestExtractMemoriesImportanceClamp(t *testing.T) {
 	}
 }
 
+// TestRememberAndRecallForUser verifies user-level memories (not persona-specific).
+func TestRememberAndRecallForUser(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	userID := "test-user-" + newID()
+
+	if err := store.RememberForUser(ctx, userID, "fact", "user is a Go developer", "", 8); err != nil {
+		t.Fatalf("RememberForUser: %v", err)
+	}
+	if err := store.RememberForUser(ctx, userID, "preference", "prefers short responses", "", 3); err != nil {
+		t.Fatalf("RememberForUser preference: %v", err)
+	}
+
+	memories, err := store.RecallForUser(ctx, userID, 10)
+	if err != nil {
+		t.Fatalf("RecallForUser: %v", err)
+	}
+	if len(memories) != 2 {
+		t.Fatalf("expected 2 memories, got %d", len(memories))
+	}
+	// Ordered by importance DESC: importance 8 first.
+	if memories[0] != "user is a Go developer" {
+		t.Errorf("expected highest-importance memory first, got %q", memories[0])
+	}
+}
+
+// TestRememberForUserDoesNotLeakAcrossUsers verifies isolation between users.
+func TestRememberForUserDoesNotLeakAcrossUsers(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	userA := "user-a-" + newID()
+	userB := "user-b-" + newID()
+
+	store.RememberForUser(ctx, userA, "fact", "memory for A", "", 5)
+
+	memories, err := store.RecallForUser(ctx, userB, 10)
+	if err != nil {
+		t.Fatalf("RecallForUser: %v", err)
+	}
+	if len(memories) != 0 {
+		t.Errorf("expected 0 memories for user B, got %d: %v", len(memories), memories)
+	}
+}
+
 // TestBuildSystemPromptInjectsMemories verifies that buildSystemPrompt includes stored memories.
 func TestBuildSystemPromptInjectsMemories(t *testing.T) {
 	_, store := testDB(t)

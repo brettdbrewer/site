@@ -139,6 +139,26 @@ func TestGetHive_PublicNoAuth(t *testing.T) {
 	}
 }
 
+// TestGetHive_ContainsCivilizationBuilds verifies GET /hive returns 200 and includes
+// the "The Civilization Builds" tagline in the response body.
+func TestGetHive_ContainsCivilizationBuilds(t *testing.T) {
+	h, _, _ := testHandlers(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest("GET", "/hive", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /hive: status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "The Civilization Builds") {
+		t.Error("GET /hive: body does not contain 'The Civilization Builds'")
+	}
+}
+
 // TestGetHive_RendersMetrics verifies the hive page contains stat card text
 // when seeded with hive agent posts.
 func TestGetHive_RendersMetrics(t *testing.T) {
@@ -379,6 +399,30 @@ func TestGetHiveAgentID_IntegrationPath(t *testing.T) {
 	got := store.GetHiveAgentID(ctx)
 	if got != agentUserID {
 		t.Errorf("GetHiveAgentID = %q, want %q", got, agentUserID)
+	}
+}
+
+// TestGetHiveStatus_Partial verifies GET /hive/status returns 200 with the main
+// content element (tasks + build log) and no full HTML shell.
+func TestGetHiveStatus_Partial(t *testing.T) {
+	h, _, _ := testHandlers(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest("GET", "/hive/status", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /hive/status: status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "hive-content") {
+		t.Error("GET /hive/status: body does not contain 'hive-content' element")
+	}
+	if strings.Contains(body, "<html") {
+		t.Error("GET /hive/status: body contains full HTML shell — partial should not include <html>")
 	}
 }
 

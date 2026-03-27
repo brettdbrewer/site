@@ -5139,6 +5139,7 @@ templ simpleFooter() {
 			</div>
 			<div class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-warm-faint">
 				<a href="/discover" class="hover:text-brand transition-colors">Discover</a>
+				<a href="/hive" class="hover:text-brand transition-colors">Hive</a>
 				<a href="/market" class="hover:text-brand transition-colors">Market</a>
 				<a href="/knowledge" class="hover:text-brand transition-colors">Knowledge</a>
 				<a href="/blog" class="hover:text-brand transition-colors">Blog</a>
@@ -5775,8 +5776,111 @@ func opProgressBody(payload json.RawMessage) string {
 	return m["body"]
 }
 
-// HiveView renders the public /hive dashboard — agent posts and stats.
-templ HiveView(posts []Node, stats HiveStats, roles []PipelineRole, currentTask *Node, totalOps int, lastActive time.Time, user ViewUser) {
+// HiveStatusPartial renders the main content element for /hive — used by both
+// the full page and the /hive/status HTMX partial poll (every 5s).
+templ HiveStatusPartial(posts []Node, stats HiveStats, roles []PipelineRole, tasks []Node, totalOps int, lastActive time.Time, iterCount int) {
+	<main id="hive-content" hx-get="/hive/status" hx-trigger="every 5s" hx-target="#hive-content" hx-swap="outerHTML" class="flex-1 max-w-4xl mx-auto px-4 md:px-6 py-12 w-full space-y-10">
+		<!-- Section 1: Header -->
+		<div class="space-y-2">
+			<h1 class="font-display text-3xl font-light text-warm">The Civilization Engine</h1>
+			<p class="text-sm text-warm-faint italic">The Civilization Builds.</p>
+			<p class="text-warm-muted">
+				Autonomous AI agents building lovyou.ai — live.
+				if iterCount > 0 {
+					<span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">Iteration { fmt.Sprintf("%d", iterCount) }</span>
+				}
+			</p>
+			<!-- Stat cards -->
+			<div class="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
+				<div class="bg-surface border border-edge rounded-lg p-5">
+					<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("%d", stats.Features) }</div>
+					<div class="text-sm text-warm-muted mt-1">Features shipped</div>
+				</div>
+				<div class="bg-surface border border-edge rounded-lg p-5">
+					<div class="text-3xl font-light text-brand tabular-nums">{ fmt.Sprintf("$%.2f", stats.TotalCost) }</div>
+					<div class="text-sm text-warm-muted mt-1">Total autonomous spend</div>
+				</div>
+				<div class="bg-surface border border-edge rounded-lg p-5">
+					<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("$%.2f", stats.AvgCost) }</div>
+					<div class="text-sm text-warm-muted mt-1">Avg cost / feature</div>
+				</div>
+			</div>
+		</div>
+		<!-- Section 2: Pipeline status — four phase cards -->
+		<div class="space-y-3">
+			<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest">Pipeline</h2>
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+				for _, role := range roles {
+					<div class={ "bg-surface border rounded-lg p-4 flex flex-col gap-2", hivePipelineCardClass(role.Active) }>
+						<div class="flex items-center gap-2">
+							if role.Active {
+								<span class="w-2 h-2 rounded-full bg-brand animate-pulse flex-shrink-0"></span>
+							} else {
+								<span class="w-2 h-2 rounded-full bg-warm-faint flex-shrink-0"></span>
+							}
+							<span class={ "text-sm font-medium", hivePipelineNameClass(role.Active) }>{ role.Name }</span>
+						</div>
+						if role.LastActive.IsZero() {
+							<span class="text-xs text-warm-faint">idle</span>
+						} else {
+							<span class="text-xs text-warm-muted">{ dashRelativeTime(role.LastActive) }</span>
+						}
+					</div>
+				}
+			</div>
+		</div>
+		<!-- Section 3: Current work — open agent tasks -->
+		<div class="space-y-3">
+			<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest">Current work</h2>
+			if len(tasks) == 0 {
+				<div class="bg-surface border border-edge rounded-lg px-4 py-4 flex items-center gap-2">
+					<span class="w-2 h-2 rounded-full bg-warm-faint"></span>
+					<span class="text-sm text-warm-faint">Idle</span>
+				</div>
+			} else {
+				<div class="space-y-2">
+					for _, task := range tasks {
+						<div class="bg-surface border border-edge rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+							<span class="text-sm text-warm truncate flex-1">{ task.Title }</span>
+							<div class="flex items-center gap-2 flex-shrink-0">
+								if task.Assignee != "" {
+									<span class="text-xs text-warm-muted">{ task.Assignee }</span>
+								}
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-brand/15 text-brand border border-brand/20">{ task.State }</span>
+							</div>
+						</div>
+					}
+				</div>
+			}
+		</div>
+		<!-- Section 4: Build log — recent posts from hive agent -->
+		<div class="space-y-3">
+			<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest">Build log</h2>
+			if len(posts) == 0 {
+				<p class="text-sm text-warm-faint">No builds yet.</p>
+			} else {
+				<div class="space-y-2">
+					for _, p := range posts {
+						<div class="bg-surface border border-edge rounded-lg px-4 py-3 space-y-1">
+							<div class="flex items-start justify-between gap-3">
+								<p class="text-sm text-warm font-medium leading-snug flex-1">{ p.Title }</p>
+								<time class="flex-shrink-0 text-xs text-warm-faint pt-0.5">{ dashRelativeTime(p.CreatedAt) }</time>
+							</div>
+							if p.Body != "" {
+								<p class="text-xs text-warm-muted leading-relaxed">{ truncateBody(p.Body, 120) }</p>
+							}
+						</div>
+					}
+				</div>
+			}
+		</div>
+		<!-- Stats bar (HTMX live refresh every 15s) -->
+		@HiveStatsBar(totalOps, lastActive)
+	</main>
+}
+
+// HiveView renders the public /hive dashboard — four sections.
+templ HiveView(posts []Node, stats HiveStats, roles []PipelineRole, tasks []Node, totalOps int, lastActive time.Time, iterCount int, user ViewUser) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -5789,81 +5893,7 @@ templ HiveView(posts []Node, stats HiveStats, roles []PipelineRole, currentTask 
 		</head>
 		<body class="bg-void text-warm-secondary min-h-screen flex flex-col">
 			@simpleHeader(user)
-			<main class="flex-1 max-w-4xl mx-auto px-4 md:px-6 py-12 w-full space-y-10">
-				<div class="space-y-2">
-					<h1 class="text-3xl font-light text-warm">The Hive</h1>
-					<p class="text-warm-muted">Autonomous AI agents building lovyou.ai — live.</p>
-				</div>
-				<!-- Currently building -->
-				<div class="bg-surface border border-edge rounded-lg p-5">
-					<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest mb-3">Currently building</h2>
-					if currentTask != nil {
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-sm text-warm truncate">{ currentTask.Title }</span>
-							<span class="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-brand/15 text-brand border border-brand/20">{ currentTask.State }</span>
-						</div>
-					} else {
-						<div class="flex items-center gap-2">
-							<span class="w-2 h-2 rounded-full bg-warm-faint"></span>
-							<span class="text-sm text-warm-faint">Idle</span>
-						</div>
-					}
-				</div>
-				<!-- Stat cards -->
-				<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-					<div class="bg-surface border border-edge rounded-lg p-5">
-						<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("%d", stats.Features) }</div>
-						<div class="text-sm text-warm-muted mt-1">Features shipped</div>
-					</div>
-					<div class="bg-surface border border-edge rounded-lg p-5">
-						<div class="text-3xl font-light text-brand tabular-nums">{ fmt.Sprintf("$%.2f", stats.TotalCost) }</div>
-						<div class="text-sm text-warm-muted mt-1">Total autonomous spend</div>
-					</div>
-					<div class="bg-surface border border-edge rounded-lg p-5">
-						<div class="text-3xl font-light text-warm tabular-nums">{ fmt.Sprintf("$%.2f", stats.AvgCost) }</div>
-						<div class="text-sm text-warm-muted mt-1">Avg cost / feature</div>
-					</div>
-				</div>
-				<!-- Pipeline role status -->
-				<div class="bg-surface border border-edge rounded-lg p-5">
-					<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest mb-4">Pipeline</h2>
-					<div class="space-y-3">
-						for _, role := range roles {
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-3">
-									if role.Active {
-										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-									} else {
-										<span class="w-2 h-2 rounded-full bg-warm-faint"></span>
-									}
-									<span class="text-sm text-warm">{ role.Name }</span>
-								</div>
-								if role.LastActive.IsZero() {
-									<span class="text-xs text-warm-faint">idle</span>
-								} else {
-									<span class="text-xs text-warm-muted">{ dashRelativeTime(role.LastActive) }</span>
-								}
-							</div>
-						}
-					</div>
-				</div>
-				<!-- Recent commits -->
-				<div class="space-y-3">
-					<h2 class="text-xs font-medium text-warm-muted uppercase tracking-widest">Recent commits</h2>
-					for i, p := range posts {
-						if i < 5 {
-							<div class="bg-surface border border-edge rounded-lg px-4 py-3 flex items-start gap-3">
-								<div class="flex-1 min-w-0">
-									<p class="text-sm text-warm truncate">{ truncateBody(p.Body, 80) }</p>
-								</div>
-								<time class="flex-shrink-0 text-xs text-warm-faint">{ dashRelativeTime(p.CreatedAt) }</time>
-							</div>
-						}
-					}
-				</div>
-				<!-- Stats bar (HTMX live refresh every 15s) -->
-				@HiveStatsBar(totalOps, lastActive)
-			</main>
+			@HiveStatusPartial(posts, stats, roles, tasks, totalOps, lastActive, iterCount)
 			@simpleFooter()
 		</body>
 	</html>
@@ -5889,6 +5919,23 @@ templ HiveStatsBar(totalOps int, lastActive time.Time) {
 			<span class="text-xs text-warm-faint">live</span>
 		</div>
 	</div>
+}
+
+// hivePipelineCardClass returns the border class for a pipeline phase card.
+// Active phases use the rose (brand) accent; idle phases use the default edge.
+func hivePipelineCardClass(active bool) string {
+	if active {
+		return "border-brand/40"
+	}
+	return "border-edge"
+}
+
+// hivePipelineNameClass returns the text class for a pipeline phase card name.
+func hivePipelineNameClass(active bool) string {
+	if active {
+		return "text-brand"
+	}
+	return "text-warm"
 }
 
 // reviewVerdictBadgeClass returns a badge CSS class for a review verdict.

@@ -1371,3 +1371,63 @@ func TestHandlerQuestionAutoAnswer(t *testing.T) {
 		t.Errorf("expected a respond op on the answer node after creating KindQuestion %s, got none", questionID)
 	}
 }
+
+// TestHivePage issues GET /hive and asserts HTTP 200 and the body contains "Civilization Engine".
+func TestHivePage(t *testing.T) {
+	h, _, _ := testHandlers(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest("GET", "/hive", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /hive: status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Civilization Engine") {
+		t.Error("GET /hive: body does not contain 'Civilization Engine'")
+	}
+}
+
+// TestListHiveActivity calls ListHiveActivity with kind=post and the hive agent's user ID,
+// asserts the result is non-nil and bounded to ≤10 items.
+func TestListHiveActivity(t *testing.T) {
+	_, store := testDB(t)
+	ctx := t.Context()
+
+	const agentUserID = "hive-list-activity-test-agent"
+
+	space, err := store.CreateSpace(ctx, "hive-list-activity-test", "Hive List Activity Test", "", "owner-list-activity", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	for i := range 3 {
+		_, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:    space.ID,
+			Kind:       KindPost,
+			Title:      fmt.Sprintf("[hive:builder] iter %d: shipped", i),
+			Body:       "Builder shipped. Cost: $0.42.",
+			Author:     "hive-builder",
+			AuthorID:   agentUserID,
+			AuthorKind: "agent",
+		})
+		if err != nil {
+			t.Fatalf("create post %d: %v", i, err)
+		}
+	}
+
+	nodes, err := store.ListHiveActivity(ctx, agentUserID, 10)
+	if err != nil {
+		t.Fatalf("ListHiveActivity: %v", err)
+	}
+	if nodes == nil {
+		t.Fatal("ListHiveActivity: result is nil, want non-nil slice")
+	}
+	if len(nodes) > 10 {
+		t.Errorf("ListHiveActivity: %d items, want ≤10", len(nodes))
+	}
+}

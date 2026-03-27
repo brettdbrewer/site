@@ -466,7 +466,29 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 		docs = nil
 	}
 
+	// Identify the human participant for memory recall/storage.
+	humanUserID := ""
+	for _, tag := range convo.Tags {
+		if !strings.HasPrefix(tag, "role:") && tag != agentID {
+			humanUserID = tag
+			break
+		}
+	}
+
 	systemPrompt := m.buildSystemPrompt(convo, agentID, docs)
+
+	// Prepend user-level memories so the agent remembers this person across conversations.
+	if humanUserID != "" {
+		if memories, _ := m.store.RecallForUser(ctx, humanUserID, 5); len(memories) > 0 {
+			var memSection strings.Builder
+			memSection.WriteString("\n== WHAT YOU REMEMBER ABOUT THIS USER ==\n")
+			for _, mem := range memories {
+				memSection.WriteString("- " + mem + "\n")
+			}
+			systemPrompt += memSection.String()
+		}
+	}
+
 	claudeMessages := m.buildMessages(convo, messages, agentID)
 
 	response, err := m.callClaude(ctx, systemPrompt, claudeMessages)
@@ -528,8 +550,7 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 	m.store.UpdateLastMessagePreview(ctx, convo.ID, cleanResponse)
 	log.Printf("mind: replied to %q (node %s)", convo.Title, node.ID)
 
-	// Save a memory for persona-based conversations so future replies have context.
-	// Also update last_seen for the persona.
+	// Save memories for future conversations.
 	role := ""
 	for _, tag := range convo.Tags {
 		if strings.HasPrefix(tag, "role:") {
@@ -549,17 +570,14 @@ func (m *Mind) replyTo(ctx context.Context, spaceID, spaceSlug string, convo *No
 	}
 	if role != "" {
 		m.store.UpdateAgentPersonaLastSeen(ctx, role)
-
-		humanUserID := ""
-		for _, tag := range convo.Tags {
-			if !strings.HasPrefix(tag, "role:") && tag != agentID {
-				humanUserID = tag
-				break
-			}
-		}
 		if humanUserID != "" {
 			go m.extractAndSaveMemories(role, humanUserID, convo.ID, messages, agentID)
 		}
+	}
+
+	// Also extract and save user-level memories (not tied to any persona).
+	if humanUserID != "" {
+		go m.extractAndSaveUserMemories(humanUserID, convo.ID, messages, agentID)
 	}
 
 	return nil
@@ -657,6 +675,88 @@ If nothing notable, return an empty array: []`
 		}
 		if err := m.store.RememberForPersona(context.Background(), persona, humanUserID, e.Kind, e.Content, convoID, e.Importance); err != nil {
 			log.Printf("mind: save memory %q: %v", e.Content, err)
+		}
+		count++
+	}
+}
+
+// extractAndSaveUserMemories calls Claude to extract up to 3 durable facts about the user
+// from the conversation exchange and stores them via RememberForUser (not persona-specific).
+// Safe to call in a goroutine — uses its own timeout context.
+func (m *Mind) extractAndSaveUserMemories(humanUserID, convoID string, messages []Node, agentID string) {
+	excerpt := messages
+	if len(excerpt) > 6 {
+		excerpt = excerpt[len(excerpt)-6:]
+	}
+	if len(excerpt) == 0 {
+		return
+	}
+
+	var msgText strings.Builder
+	for _, msg := range excerpt {
+		label := "User"
+		if msg.AuthorID == agentID {
+			label = "Agent"
+		}
+		msgText.WriteString(fmt.Sprintf("%s: %s\n", label, truncateStr(msg.Body, 200)))
+	}
+
+	sysPrompt := `Extract up to 3 facts worth remembering about the user from this exchange.
+Return a JSON array of objects: [{"content": "...", "kind": "fact|preference|context", "importance": 1-5}]
+Return [] if nothing notable. Focus on: name, role, stated preferences, goals, or durable facts.`
+	userMsg := "Extract up to 3 facts worth remembering from this exchange as JSON array of {content, kind, importance}:\n\n" + msgText.String()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	result, err := m.callClaude(ctx, sysPrompt, []claudeMessage{{Role: "user", Content: userMsg}})
+	if err != nil {
+		log.Printf("mind: user memory extraction: %v", err)
+		return
+	}
+
+	result = strings.TrimSpace(result)
+	if result == "" {
+		return
+	}
+
+	jsonStr := result
+	if idx := strings.Index(jsonStr, "```json"); idx >= 0 {
+		jsonStr = jsonStr[idx+7:]
+		if end := strings.Index(jsonStr, "```"); end >= 0 {
+			jsonStr = jsonStr[:end]
+		}
+	} else if idx := strings.Index(jsonStr, "["); idx >= 0 {
+		jsonStr = jsonStr[idx:]
+		if end := strings.LastIndex(jsonStr, "]"); end >= 0 {
+			jsonStr = jsonStr[:end+1]
+		}
+	}
+
+	var extracts []memoryExtract
+	if err := json.Unmarshal([]byte(strings.TrimSpace(jsonStr)), &extracts); err != nil {
+		log.Printf("mind: user memory extraction parse: %v (response: %s)", err, truncateStr(result, 200))
+		return
+	}
+
+	count := 0
+	for _, e := range extracts {
+		if count >= 3 {
+			break
+		}
+		if e.Content == "" {
+			continue
+		}
+		if !validMemoryKinds[e.Kind] {
+			e.Kind = "fact"
+		}
+		if e.Importance < 1 {
+			e.Importance = 1
+		} else if e.Importance > 5 {
+			e.Importance = 5
+		}
+		if err := m.store.RememberForUser(context.Background(), humanUserID, e.Kind, e.Content, convoID, e.Importance); err != nil {
+			log.Printf("mind: save user memory %q: %v", e.Content, err)
 		}
 		count++
 	}

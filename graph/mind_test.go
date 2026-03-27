@@ -431,6 +431,72 @@ func TestBuildSystemPromptPersonaRouting(t *testing.T) {
 	})
 }
 
+// TestReplyToInjectsUserMemories verifies that stored user-level memories are prepended
+// to the system prompt in replyTo, making the agent aware of prior knowledge.
+func TestReplyToInjectsUserMemories(t *testing.T) {
+	db, store := testDB(t)
+	ctx := context.Background()
+
+	agentID := "reply-mem-agent-" + newID()
+	humanID := "reply-mem-human-" + newID()
+
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID)
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'agent')`,
+		agentID, "agent:ReplyMemAgent", "replymem@test.lovyou.ai", "ReplyMemAgent")
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	t.Cleanup(func() { db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, agentID) })
+
+	space, err := store.CreateSpace(ctx, "reply-mem-test-"+newID(), "Reply Mem Test", "", "owner", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	convo, err := store.CreateNode(ctx, CreateNodeParams{
+		SpaceID:    space.ID,
+		Kind:       KindConversation,
+		Title:      "Memory Test Chat",
+		Author:     "Human",
+		AuthorID:   humanID,
+		AuthorKind: "human",
+		Tags:       []string{humanID, agentID},
+	})
+	if err != nil {
+		t.Fatalf("create convo: %v", err)
+	}
+
+	// Store a user-level memory.
+	if err := store.RememberForUser(ctx, humanID, "fact", "user is a senior Go developer", "", 8); err != nil {
+		t.Fatalf("RememberForUser: %v", err)
+	}
+
+	var capturedPrompt string
+	mind := &Mind{
+		db:    db,
+		store: store,
+		callClaudeOverride: func(_ context.Context, sys string, _ []claudeMessage) (string, error) {
+			if capturedPrompt == "" {
+				capturedPrompt = sys
+			}
+			return "stub reply", nil
+		},
+	}
+
+	if err := mind.replyTo(ctx, space.ID, space.Slug, convo, agentID, "ReplyMemAgent"); err != nil {
+		t.Fatalf("replyTo: %v", err)
+	}
+
+	if !strings.Contains(capturedPrompt, "user is a senior Go developer") {
+		t.Errorf("expected user memory in system prompt\ngot: %s", capturedPrompt[:min(len(capturedPrompt), 500)])
+	}
+	if !strings.Contains(capturedPrompt, "WHAT YOU REMEMBER ABOUT THIS USER") {
+		t.Errorf("expected memory section header in prompt\ngot: %s", capturedPrompt[:min(len(capturedPrompt), 500)])
+	}
+}
+
 // TestMindE2E runs a full end-to-end test: human message → Mind replies.
 // Requires DATABASE_URL and CLAUDE_CODE_OAUTH_TOKEN.
 func TestMindE2E(t *testing.T) {

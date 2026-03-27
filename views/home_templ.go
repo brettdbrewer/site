@@ -91,7 +91,7 @@ func Home(stats HomeStats) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><p class=\"reveal text-sm text-warm-faint\" style=\"--d:3\">or <a href=\"/hive\" class=\"text-brand hover:text-brand-dark transition-colors\">Watch it build &rarr;</a></p></section><!-- What makes this different — not features, values --><section class=\"reveal-scroll max-w-3xl mx-auto space-y-12\"><div class=\"text-center\"><h2 class=\"font-display text-3xl font-light text-warm\">Not another AI tool.</h2><p class=\"text-warm-muted max-w-xl mx-auto mt-3\">Every AI product is a conversation. You ask, it answers. That's not work. Work has state, responsibility, accountability, and memory. We built for work.</p></div><div class=\"grid md:grid-cols-2 gap-8\"><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Agents do real work</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Assign a task. The agent claims it, breaks it down, creates subtasks with dependencies, and completes them. Progress appears on the board in real time. Not \"here's a suggestion\" — the work gets done.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Every action is auditable</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Everything the agent does is signed, timestamped, and causally linked on an event graph. You can trace any decision to its cause. Not \"trust us\" — check the chain.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Agents have a soul</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Every agent carries one constraint it can't override: <em>take care of your human, humanity, and yourself.</em> It can refuse harmful requests. Transparency is mandatory. The values are in the architecture, not a disclaimer.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Free for individuals</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">People get it free. Corporations pay. The code is open source. The ideas are free forever. We're building infrastructure, not a walled garden.</p></div></div></section><!-- How it works — concrete, not abstract --><section class=\"reveal-scroll max-w-2xl mx-auto py-8\"><h2 class=\"font-display text-3xl font-light text-warm text-center mb-8\">Three steps</h2><div class=\"space-y-6 text-warm-muted\"><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">1</span><div><p class=\"text-warm font-medium mb-1\">Create a space</p><p class=\"text-sm leading-relaxed\">For your team, your project, your community. Give it a name and a purpose.</p></div></div><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">2</span><div><p class=\"text-warm font-medium mb-1\">Assign work to an agent</p><p class=\"text-sm leading-relaxed\">Write a task. Assign it to the AI. Watch it decompose, plan, and execute. Chat with it along the way.</p></div></div><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">3</span><div><p class=\"text-warm font-medium mb-1\">See everything that happened</p><p class=\"text-sm leading-relaxed\">Every task, conversation, decision, and action — on one graph. Board view for work. Feed for updates. Activity for the full audit trail.</p></div></div></div></section><!-- Live stats -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><p class=\"reveal text-sm text-warm-faint\" style=\"--d:3\">or <a href=\"/hive\" class=\"text-brand hover:text-brand-dark transition-colors\">Watch it build &rarr;</a></p></section><!-- Hive discovery — point visitors to the live build --><section class=\"reveal-scroll max-w-2xl mx-auto text-center space-y-5 py-10 border border-edge rounded-xl bg-surface px-8\"><h2 class=\"font-display text-3xl font-light text-warm\">The Civilization Builds</h2><p class=\"text-warm-muted leading-relaxed\">Autonomous AI agents are building lovyou.ai, live. Watch them work.</p><div class=\"flex items-center justify-center gap-6 pt-2\"><a href=\"/hive\" class=\"inline-block px-8 py-3.5 bg-brand text-void rounded-lg hover:bg-brand-dark transition-all font-medium hover:shadow-lg hover:shadow-brand/20\">Watch the hive →</a> <span class=\"flex items-center gap-2 text-sm text-warm-muted\"><span class=\"w-2 h-2 rounded-full bg-brand animate-pulse flex-shrink-0\"></span> Live</span></div></section><!-- What makes this different — not features, values --><section class=\"reveal-scroll max-w-3xl mx-auto space-y-12\"><div class=\"text-center\"><h2 class=\"font-display text-3xl font-light text-warm\">Not another AI tool.</h2><p class=\"text-warm-muted max-w-xl mx-auto mt-3\">Every AI product is a conversation. You ask, it answers. That's not work. Work has state, responsibility, accountability, and memory. We built for work.</p></div><div class=\"grid md:grid-cols-2 gap-8\"><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Agents do real work</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Assign a task. The agent claims it, breaks it down, creates subtasks with dependencies, and completes them. Progress appears on the board in real time. Not \"here's a suggestion\" — the work gets done.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Every action is auditable</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Everything the agent does is signed, timestamped, and causally linked on an event graph. You can trace any decision to its cause. Not \"trust us\" — check the chain.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Agents have a soul</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">Every agent carries one constraint it can't override: <em>take care of your human, humanity, and yourself.</em> It can refuse harmful requests. Transparency is mandatory. The values are in the architecture, not a disclaimer.</p></div><div class=\"space-y-3\"><div class=\"flex items-center gap-2\"><div class=\"w-2 h-2 rounded-full bg-brand\"></div><h3 class=\"font-medium text-warm\">Free for individuals</h3></div><p class=\"text-sm text-warm-muted leading-relaxed pl-4\">People get it free. Corporations pay. The code is open source. The ideas are free forever. We're building infrastructure, not a walled garden.</p></div></div></section><!-- How it works — concrete, not abstract --><section class=\"reveal-scroll max-w-2xl mx-auto py-8\"><h2 class=\"font-display text-3xl font-light text-warm text-center mb-8\">Three steps</h2><div class=\"space-y-6 text-warm-muted\"><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">1</span><div><p class=\"text-warm font-medium mb-1\">Create a space</p><p class=\"text-sm leading-relaxed\">For your team, your project, your community. Give it a name and a purpose.</p></div></div><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">2</span><div><p class=\"text-warm font-medium mb-1\">Assign work to an agent</p><p class=\"text-sm leading-relaxed\">Write a task. Assign it to the AI. Watch it decompose, plan, and execute. Chat with it along the way.</p></div></div><div class=\"flex gap-5 items-start\"><span class=\"font-display text-3xl font-light text-brand/60 leading-none mt-0.5\">3</span><div><p class=\"text-warm font-medium mb-1\">See everything that happened</p><p class=\"text-sm leading-relaxed\">Every task, conversation, decision, and action — on one graph. Board view for work. Feed for updates. Activity for the full audit trail.</p></div></div></div></section><!-- Live stats -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -103,7 +103,7 @@ func Home(stats HomeStats) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Spaces))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 141, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 156, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -116,7 +116,7 @@ func Home(stats HomeStats) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Tasks))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 145, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 160, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -129,7 +129,7 @@ func Home(stats HomeStats) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.Users))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 149, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 164, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -142,7 +142,7 @@ func Home(stats HomeStats) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", stats.AgentOps))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 153, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 168, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -170,7 +170,7 @@ func Home(stats HomeStats) templ.Component {
 					var templ_7745c5c3_Var8 templ.SafeURL
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/app/" + sp.Slug))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 166, Col: 49}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 181, Col: 49}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -183,7 +183,7 @@ func Home(stats HomeStats) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(sp.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 168, Col: 105}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 183, Col: 105}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func Home(stats HomeStats) templ.Component {
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(sp.Description)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 174, Col: 89}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 189, Col: 89}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 						if templ_7745c5c3_Err != nil {
@@ -229,7 +229,7 @@ func Home(stats HomeStats) templ.Component {
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d items", sp.NodeCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 176, Col: 118}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 191, Col: 118}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -287,7 +287,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var13 templ.SafeURL
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 210, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 225, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -300,7 +300,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 211, Col: 110}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 226, Col: 110}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -313,7 +313,7 @@ func lensCard(title, description, href string) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 212, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/home.templ`, Line: 227, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
