@@ -2294,6 +2294,14 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		if nodeKind != KindProject && nodeKind != KindGoal && nodeKind != KindRole && nodeKind != KindTeam && nodeKind != KindPolicy && nodeKind != KindDocument && nodeKind != KindQuestion {
 			nodeKind = KindTask // default
 		}
+		var intentCauses []string
+		if causesStr := r.FormValue("causes"); causesStr != "" {
+			for _, c := range strings.Split(causesStr, ",") {
+				if c = strings.TrimSpace(c); c != "" {
+					intentCauses = append(intentCauses, c)
+				}
+			}
+		}
 		node, err := h.store.CreateNode(ctx, CreateNodeParams{
 			SpaceID:    space.ID,
 			Kind:       nodeKind,
@@ -2306,6 +2314,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			AuthorID:   actorID,
 			AuthorKind: actorKind,
 			DueDate:    dueDate,
+			Causes:     intentCauses,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -2924,6 +2933,14 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "title required", http.StatusBadRequest)
 			return
 		}
+		var causes []string
+		if causesStr := r.FormValue("causes"); causesStr != "" {
+			for _, c := range strings.Split(causesStr, ",") {
+				if c = strings.TrimSpace(c); c != "" {
+					causes = append(causes, c)
+				}
+			}
+		}
 		node, err := h.store.CreateNode(ctx, CreateNodeParams{
 			SpaceID:    space.ID,
 			Kind:       KindClaim,
@@ -2933,6 +2950,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			Author:     actor,
 			AuthorID:   actorID,
 			AuthorKind: actorKind,
+			Causes:     causes,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

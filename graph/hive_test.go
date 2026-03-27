@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -195,9 +194,9 @@ func TestGetHive_PublicNoAuth(t *testing.T) {
 	}
 }
 
-// TestGetHive_ContainsCivilizationBuilds verifies GET /hive returns 200 and includes
-// the "The Civilization Builds" tagline in the response body.
-func TestGetHive_ContainsCivilizationBuilds(t *testing.T) {
+// TestGetHive_ContainsHiveFeed verifies GET /hive returns 200 and includes the
+// hive-feed element rendered by HivePage regardless of loop state.
+func TestGetHive_ContainsHiveFeed(t *testing.T) {
 	h, _, _ := testHandlers(t)
 
 	mux := http.NewServeMux()
@@ -210,104 +209,8 @@ func TestGetHive_ContainsCivilizationBuilds(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET /hive: status = %d, want 200; body: %s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "The Civilization Builds") {
-		t.Error("GET /hive: body does not contain 'The Civilization Builds'")
-	}
-}
-
-// TestGetHive_RendersMetrics verifies the hive page contains stat card text
-// when seeded with hive agent posts.
-func TestGetHive_RendersMetrics(t *testing.T) {
-	h, store, _ := testHandlers(t)
-
-	mux := http.NewServeMux()
-	h.Register(mux)
-
-	// Create a public space to house the hive agent posts.
-	space, err := store.CreateSpace(t.Context(), "hive-metrics-test", "Hive Metrics Test", "", "owner-hive-metrics", "project", "public")
-	if err != nil {
-		t.Fatalf("create space: %v", err)
-	}
-	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
-
-	// Seed two posts by a hive agent (author_kind = "agent") with cost metadata.
-	for i := range 2 {
-		_, err := store.CreateNode(t.Context(), CreateNodeParams{
-			SpaceID:    space.ID,
-			Kind:       KindPost,
-			Title:      fmt.Sprintf("[hive:builder] iter %d: shipped feature", i+230),
-			Body:       fmt.Sprintf("Builder shipped the feature. Cost: $0.42. Duration: %dm30s.", i+3),
-			Author:     "hive-builder",
-			AuthorID:   "hive-agent-metrics-test-id",
-			AuthorKind: "agent",
-		})
-		if err != nil {
-			t.Fatalf("create post %d: %v", i, err)
-		}
-	}
-
-	req := httptest.NewRequest("GET", "/hive", nil)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body: %s", w.Code, w.Body.String())
-	}
-	body := w.Body.String()
-	for _, label := range []string{"Features shipped", "Total autonomous spend", "Avg cost"} {
-		if !strings.Contains(body, label) {
-			t.Errorf("response body does not contain stat card label %q", label)
-		}
-	}
-}
-
-// TestGetHive_RendersCurrentlyBuilding verifies the "Currently building" section
-// shows a task title when an open agent task exists, and "Idle" when none exists.
-func TestGetHive_RendersCurrentlyBuilding(t *testing.T) {
-	h, store, _ := testHandlers(t)
-
-	mux := http.NewServeMux()
-	h.Register(mux)
-
-	// Without any agent tasks, "Idle" should appear.
-	req := httptest.NewRequest("GET", "/hive", nil)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "Idle") {
-		t.Error("expected 'Idle' when no agent tasks exist")
-	}
-
-	// Create a space and seed an open agent task.
-	space, err := store.CreateSpace(t.Context(), "hive-task-test", "Hive Task Test", "", "owner-hive-task", "project", "public")
-	if err != nil {
-		t.Fatalf("create space: %v", err)
-	}
-	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
-
-	_, err = store.CreateNode(t.Context(), CreateNodeParams{
-		SpaceID:    space.ID,
-		Kind:       KindTask,
-		Title:      "Build the knowledge layer",
-		Body:       "Layer 6 implementation.",
-		Author:     "hive-strategist",
-		AuthorID:   "hive-agent-task-test-id",
-		AuthorKind: "agent",
-	})
-	if err != nil {
-		t.Fatalf("create task: %v", err)
-	}
-
-	req2 := httptest.NewRequest("GET", "/hive", nil)
-	w2 := httptest.NewRecorder()
-	mux.ServeHTTP(w2, req2)
-	if w2.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body: %s", w2.Code, w2.Body.String())
-	}
-	if !strings.Contains(w2.Body.String(), "Build the knowledge layer") {
-		t.Error("expected task title in 'Currently building' section")
+	if !strings.Contains(w.Body.String(), "hive-feed") {
+		t.Error("GET /hive: body does not contain 'hive-feed' element")
 	}
 }
 

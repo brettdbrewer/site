@@ -140,6 +140,7 @@ type Node struct {
 	ChildCount   int        `json:"child_count"`
 	ChildDone    int        `json:"child_done"`
 	BlockerCount int        `json:"blocker_count"`
+	Causes       []string   `json:"causes"`
 }
 
 // Op is a recorded grammar operation.
@@ -185,6 +186,7 @@ type CreateNodeParams struct {
 	DueDate    *time.Time
 	ReplyToID  string
 	QuoteOfID  string
+	Causes     []string
 }
 
 // ListNodesParams controls filtering for node listing.
@@ -476,6 +478,7 @@ CREATE TABLE IF NOT EXISTS node_members (
 );
 CREATE INDEX IF NOT EXISTS idx_node_members_user ON node_members(user_id);
 ALTER TABLE node_members DROP COLUMN IF EXISTS user_name;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS causes TEXT[] NOT NULL DEFAULT '{}';
 `)
 	return err
 }
@@ -704,6 +707,10 @@ func (s *Store) CreateNode(ctx context.Context, p CreateNodeParams) (*Node, erro
 		authorKind = "human"
 	}
 
+	causes := p.Causes
+	if causes == nil {
+		causes = []string{}
+	}
 	n := &Node{
 		ID:         newID(),
 		SpaceID:    p.SpaceID,
@@ -722,6 +729,7 @@ func (s *Store) CreateNode(ctx context.Context, p CreateNodeParams) (*Node, erro
 		DueDate:    p.DueDate,
 		ReplyToID:  p.ReplyToID,
 		QuoteOfID:  p.QuoteOfID,
+		Causes:     causes,
 	}
 
 	var parentID *string
@@ -730,11 +738,11 @@ func (s *Store) CreateNode(ctx context.Context, p CreateNodeParams) (*Node, erro
 	}
 
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO nodes (id, space_id, parent_id, kind, title, body, state, priority, assignee, assignee_id, author, author_id, author_kind, tags, due_date, reply_to_id, quote_of_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		`INSERT INTO nodes (id, space_id, parent_id, kind, title, body, state, priority, assignee, assignee_id, author, author_id, author_kind, tags, due_date, reply_to_id, quote_of_id, causes)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		 RETURNING created_at, updated_at`,
 		n.ID, n.SpaceID, parentID, n.Kind, n.Title, n.Body, n.State, n.Priority,
-		n.Assignee, n.AssigneeID, n.Author, n.AuthorID, n.AuthorKind, pq.Array(n.Tags), n.DueDate, n.ReplyToID, n.QuoteOfID,
+		n.Assignee, n.AssigneeID, n.Author, n.AuthorID, n.AuthorKind, pq.Array(n.Tags), n.DueDate, n.ReplyToID, n.QuoteOfID, pq.Array(n.Causes),
 	).Scan(&n.CreatedAt, &n.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create node: %w", err)
@@ -762,7 +770,7 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 		       COALESCE((SELECT q.author FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT q.title FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), ''),
-		       COALESCE(au.kind, '')
+		       COALESCE(au.kind, ''), n.causes
 		FROM nodes n
 		LEFT JOIN users au ON au.id = n.assignee_id
 		WHERE n.id = $1`, id,
@@ -773,7 +781,7 @@ func (s *Store) GetNode(ctx context.Context, id string) (*Node, error) {
 		&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 		&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 		&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
-		&n.AssigneeKind,
+		&n.AssigneeKind, pq.Array(&n.Causes),
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -808,7 +816,7 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 		       COALESCE((SELECT q.author FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT q.title FROM nodes q WHERE q.id = n.quote_of_id), ''),
 		       COALESCE((SELECT LEFT(q.body, 120) FROM nodes q WHERE q.id = n.quote_of_id), ''),
-		       COALESCE(au.kind, '')
+		       COALESCE(au.kind, ''), n.causes
 		FROM nodes n
 		LEFT JOIN users au ON au.id = n.assignee_id
 		WHERE n.space_id = $1`
@@ -875,7 +883,7 @@ func (s *Store) ListNodes(ctx context.Context, p ListNodesParams) ([]Node, error
 			&n.ChildCount, &n.ChildDone, &n.BlockerCount,
 			&n.ReplyToID, &n.ReplyToAuthor, &n.ReplyToBody,
 			&n.QuoteOfID, &n.QuoteOfAuthor, &n.QuoteOfTitle, &n.QuoteOfBody,
-			&n.AssigneeKind,
+			&n.AssigneeKind, pq.Array(&n.Causes),
 		); err != nil {
 			return nil, fmt.Errorf("scan node: %w", err)
 		}
