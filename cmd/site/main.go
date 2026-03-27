@@ -217,6 +217,12 @@ func main() {
 		graphHandlers.Register(mux)
 		log.Println("app enabled (DATABASE_URL set)")
 
+		// Wire pub/sub webhook for hive event notifications.
+		if webhookURL := os.Getenv("HIVE_WEBHOOK_URL"); webhookURL != "" {
+			graphStore.OnOp(graph.WebhookSubscriber(webhookURL))
+			log.Printf("hive webhook enabled: %s", webhookURL)
+		}
+
 		// Wire Mind auto-reply if Claude token is set.
 		if claudeToken := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"); claudeToken != "" {
 			mind = graph.NewMind(db, graphStore, claudeToken)

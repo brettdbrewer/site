@@ -4,6 +4,7 @@
 package graph
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -12,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/lib/pq"
@@ -210,8 +212,36 @@ var (
 // ────────────────────────────────────────────────────────────────────
 
 // Store is a Postgres-backed store for the unified product.
+// OpSubscriber is called after every op is recorded. Fire-and-forget —
+// subscribers should not block. This is the pub/sub channel.
+type OpSubscriber func(op *Op)
+
 type Store struct {
-	db *sql.DB
+	db          *sql.DB
+	subscribers []OpSubscriber
+}
+
+// OnOp registers a subscriber that fires after every recorded op.
+// Used by the hive to react to graph events in real time.
+func (s *Store) OnOp(fn OpSubscriber) {
+	s.subscribers = append(s.subscribers, fn)
+}
+
+// WebhookSubscriber returns an OpSubscriber that POSTs each op as JSON
+// to the given URL. Fire-and-forget with a 5-second timeout.
+func WebhookSubscriber(url string) OpSubscriber {
+	client := &http.Client{Timeout: 5 * time.Second}
+	return func(op *Op) {
+		data, err := json.Marshal(op)
+		if err != nil {
+			return
+		}
+		resp, err := client.Post(url, "application/json", bytes.NewReader(data))
+		if err != nil {
+			return
+		}
+		resp.Body.Close()
+	}
 }
 
 // NewStore wraps an existing database connection and runs migrations.
@@ -1344,6 +1374,12 @@ func (s *Store) RecordOp(ctx context.Context, spaceID, nodeID, actor, actorID, o
 	if err != nil {
 		return nil, fmt.Errorf("record op: %w", err)
 	}
+
+	// Notify subscribers (pub/sub). Fire-and-forget — don't block the op.
+	for _, fn := range s.subscribers {
+		go fn(o)
+	}
+
 	return o, nil
 }
 
