@@ -272,6 +272,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /app/{slug}/conversations", h.readWrap(h.handleConversations))
 	mux.Handle("GET /app/{slug}/people", h.readWrap(h.handlePeople))
 	mux.Handle("GET /app/{slug}/agents", h.readWrap(h.handleAgents))
+	mux.Handle("PATCH /app/{slug}/agents/{name}/session", h.writeWrap(h.handleAgentSessionUpdate))
 	mux.Handle("POST /app/{slug}/agents/{name}/chat", h.writeWrap(h.handleAgentChat))
 	mux.Handle("GET /app/{slug}/activity", h.readWrap(h.handleActivity))
 	mux.Handle("GET /app/{slug}/knowledge", h.readWrap(h.handleKnowledge))
@@ -1352,6 +1353,22 @@ func (h *Handlers) handleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	AgentsView(*space, spaces, categories, h.viewUser(r)).Render(r.Context(), w)
+}
+
+func (h *Handlers) handleAgentSessionUpdate(w http.ResponseWriter, r *http.Request) {
+	personaName := r.PathValue("name")
+	var body struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SessionID == "" {
+		http.Error(w, "session_id required", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.UpdateAgentSession(r.Context(), personaName, body.SessionID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "session_id": body.SessionID})
 }
 
 func (h *Handlers) handleAgentChat(w http.ResponseWriter, r *http.Request) {

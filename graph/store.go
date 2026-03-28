@@ -3864,6 +3864,16 @@ func (s *Store) UpdateAgentPersonaLastSeen(ctx context.Context, name string) {
 	s.db.ExecContext(ctx, `UPDATE agent_personas SET last_seen = NOW() WHERE name = $1`, name)
 }
 
+// UpdateAgentSession sets the session_id for the named persona.
+// Called by the hive pipeline after each successful Claude CLI call to persist
+// the session UUID for warm resumption on subsequent iterations.
+func (s *Store) UpdateAgentSession(ctx context.Context, name, sessionID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE agent_personas SET session_id = $1 WHERE name = $2`,
+		sessionID, name)
+	return err
+}
+
 // GetAgentPersonaForConversation finds any agent participant in the given tag list
 // (user IDs) and returns their persona, or nil if the conversation has no agent.
 // Uses persona_name (the stable slug) for the join, not the mutable display name.
