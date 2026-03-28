@@ -3830,16 +3830,16 @@ func (s *Store) CountChallenges(ctx context.Context, nodeID string) int {
 
 // AgentPersona is a named agent persona seeded from agents/*.md files.
 type AgentPersona struct {
-	ID          string
-	Name        string     // slug, e.g. "philosopher"
-	Display     string     // display name, e.g. "Philosopher"
-	Description string     // one-line for the card
-	Category    string     // "care", "governance", "knowledge", etc.
-	Prompt      string     // full system prompt from the .md file
-	Model       string     // "sonnet", "opus", etc.
-	Active      bool
-	LastSeen    *time.Time // nil if never replied
-	SessionID   string     // UUID for Claude CLI --session-id (persistent session)
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Display     string     `json:"display"`
+	Description string     `json:"description"`
+	Category    string     `json:"category"`
+	Prompt      string     `json:"prompt"`
+	Model       string     `json:"model"`
+	Active      bool       `json:"active"`
+	LastSeen    *time.Time `json:"last_seen,omitempty"`
+	SessionID   string     `json:"session_id"`
 }
 
 // UpsertAgentPersona inserts or updates an agent persona by name.
@@ -3954,7 +3954,7 @@ func (s *Store) GetAgentPersona(ctx context.Context, name string) *AgentPersona 
 // ListAgentPersonas returns all active agent personas ordered by category, display.
 func (s *Store) ListAgentPersonas(ctx context.Context) ([]AgentPersona, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, display, description, category, model, last_seen
+		`SELECT id, name, display, description, category, prompt, model, last_seen, session_id
 		 FROM agent_personas WHERE active = true ORDER BY category, display`)
 	if err != nil {
 		return nil, err
@@ -3963,10 +3963,14 @@ func (s *Store) ListAgentPersonas(ctx context.Context) ([]AgentPersona, error) {
 	var personas []AgentPersona
 	for rows.Next() {
 		var p AgentPersona
-		if err := rows.Scan(&p.ID, &p.Name, &p.Display, &p.Description, &p.Category, &p.Model, &p.LastSeen); err != nil {
+		var sessionID *string
+		if err := rows.Scan(&p.ID, &p.Name, &p.Display, &p.Description, &p.Category, &p.Prompt, &p.Model, &p.LastSeen, &sessionID); err != nil {
 			return nil, err
 		}
 		p.Active = true
+		if sessionID != nil {
+			p.SessionID = *sessionID
+		}
 		personas = append(personas, p)
 	}
 	return personas, rows.Err()
