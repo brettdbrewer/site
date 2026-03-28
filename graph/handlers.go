@@ -2320,7 +2320,7 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		nodeKind := r.FormValue("kind")
-		if nodeKind != KindProject && nodeKind != KindGoal && nodeKind != KindRole && nodeKind != KindTeam && nodeKind != KindPolicy && nodeKind != KindDocument && nodeKind != KindQuestion {
+		if nodeKind != KindProject && nodeKind != KindGoal && nodeKind != KindRole && nodeKind != KindTeam && nodeKind != KindPolicy && nodeKind != KindDocument && nodeKind != KindQuestion && nodeKind != KindProposal {
 			nodeKind = KindTask // default
 		}
 		var intentCauses []string
@@ -2331,11 +2331,15 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		intentBody := strings.TrimSpace(r.FormValue("body"))
+		if intentBody == "" {
+			intentBody = strings.TrimSpace(r.FormValue("description"))
+		}
 		node, err := h.store.CreateNode(ctx, CreateNodeParams{
 			SpaceID:    space.ID,
 			Kind:       nodeKind,
 			Title:      title,
-			Body:       strings.TrimSpace(r.FormValue("description")),
+			Body:       intentBody,
 			Priority:   r.FormValue("priority"),
 			Assignee:   assigneeName,
 			AssigneeID: assigneeID,
@@ -3346,6 +3350,17 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Optional quorum configuration.
+		if qp := r.FormValue("quorum_pct"); qp != "" {
+			var pct int
+			if _, err := fmt.Sscanf(qp, "%d", &pct); err == nil && pct > 0 && pct <= 100 {
+				vb := r.FormValue("voting_body")
+				if vb == "" {
+					vb = VotingBodyAll
+				}
+				h.store.SetProposalConfig(ctx, node.ID, pct, vb)
+			}
+		}
 		h.store.RecordOp(ctx, space.ID, node.ID, actor, actorID, "propose", nil)
 
 		if wantsJSON(r) {
@@ -3375,6 +3390,11 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "proposal is no longer open", http.StatusBadRequest)
 			return
 		}
+		// Delegated users cannot vote directly — they must undelegate first.
+		if h.store.HasDelegated(ctx, space.ID, actorID) {
+			http.Error(w, "you have delegated your vote; undelegate before voting directly", http.StatusConflict)
+			return
+		}
 		// One vote per user per proposal.
 		if h.store.HasVoted(ctx, nodeID, actorID) {
 			http.Error(w, "already voted", http.StatusConflict)
@@ -3387,6 +3407,9 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 		if node.AuthorID != actorID && op != nil {
 			h.notify(ctx, node.AuthorID, actor, op.ID, space.ID, "voted "+vote+" on your proposal: "+node.Title)
 		}
+
+		// Auto-close proposal if quorum is now met.
+		h.store.CheckAndAutoCloseProposal(ctx, space.ID, nodeID)
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "vote", "vote": vote})
@@ -3536,6 +3559,36 @@ func (h *Handlers) handleOp(w http.ResponseWriter, r *http.Request) {
 
 		if wantsJSON(r) {
 			writeJSON(w, http.StatusOK, map[string]string{"op": "close_proposal", "outcome": outcome})
+			return
+		}
+		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)
+
+	case "delegate":
+		delegateID := strings.TrimSpace(r.FormValue("delegate_id"))
+		if delegateID == "" {
+			http.Error(w, "delegate_id required", http.StatusBadRequest)
+			return
+		}
+		if err := h.store.Delegate(ctx, space.ID, actorID, delegateID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		payload, _ := json.Marshal(map[string]string{"delegate_id": delegateID})
+		h.store.RecordOp(ctx, space.ID, "", actor, actorID, OpDelegate, payload)
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, map[string]string{"op": OpDelegate, "delegate_id": delegateID})
+			return
+		}
+		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)
+
+	case "undelegate":
+		if err := h.store.Undelegate(ctx, space.ID, actorID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		h.store.RecordOp(ctx, space.ID, "", actor, actorID, OpUndelegate, nil)
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, map[string]string{"op": OpUndelegate})
 			return
 		}
 		http.Redirect(w, r, "/app/"+space.Slug+"/governance", http.StatusSeeOther)

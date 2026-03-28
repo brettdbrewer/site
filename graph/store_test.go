@@ -1848,3 +1848,236 @@ func TestUpdateNodeCauses(t *testing.T) {
 		t.Errorf("expected ErrNotFound for missing node, got %v", err)
 	}
 }
+
+func TestGovernanceDelegation(t *testing.T) {
+	_, store := testDB(t)
+	ctx := context.Background()
+
+	// Clean up any stale test space.
+	if old, _ := store.GetSpaceBySlug(ctx, "gov-deleg-test"); old != nil {
+		store.DeleteSpace(ctx, old.ID)
+	}
+	space, err := store.CreateSpace(ctx, "gov-deleg-test", "Gov Delegation Test", "", "owner-gov", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(ctx, space.ID) })
+
+	// Add members so GetSpaceMemberCount returns a meaningful number.
+	store.JoinSpace(ctx, space.ID, "delegator-1", "Delegator One")
+	store.JoinSpace(ctx, space.ID, "delegate-2", "Delegate Two")
+	store.JoinSpace(ctx, space.ID, "voter-3", "Voter Three")
+
+	t.Run("delegate_and_has_delegated", func(t *testing.T) {
+		if err := store.Delegate(ctx, space.ID, "delegator-1", "delegate-2"); err != nil {
+			t.Fatalf("Delegate: %v", err)
+		}
+		if !store.HasDelegated(ctx, space.ID, "delegator-1") {
+			t.Error("HasDelegated = false, want true")
+		}
+		if store.HasDelegated(ctx, space.ID, "delegate-2") {
+			t.Error("HasDelegated for delegate-2 = true, want false")
+		}
+	})
+
+	t.Run("undelegate_clears_delegation", func(t *testing.T) {
+		if err := store.Undelegate(ctx, space.ID, "delegator-1"); err != nil {
+			t.Fatalf("Undelegate: %v", err)
+		}
+		if store.HasDelegated(ctx, space.ID, "delegator-1") {
+			t.Error("HasDelegated after Undelegate = true, want false")
+		}
+	})
+
+	t.Run("circular_delegation_blocked", func(t *testing.T) {
+		// A→B is fine.
+		if err := store.Delegate(ctx, space.ID, "delegator-1", "delegate-2"); err != nil {
+			t.Fatalf("first Delegate: %v", err)
+		}
+		// B→A should fail (circular).
+		if err := store.Delegate(ctx, space.ID, "delegate-2", "delegator-1"); err == nil {
+			t.Error("expected error for circular delegation, got nil")
+		}
+		store.Undelegate(ctx, space.ID, "delegator-1")
+	})
+
+	t.Run("self_delegation_blocked", func(t *testing.T) {
+		if err := store.Delegate(ctx, space.ID, "delegator-1", "delegator-1"); err == nil {
+			t.Error("expected error for self-delegation, got nil")
+		}
+	})
+
+	t.Run("effective_vote_count_includes_delegated", func(t *testing.T) {
+		// delegator-1 delegates to delegate-2.
+		store.Delegate(ctx, space.ID, "delegator-1", "delegate-2")
+
+		// Create a proposal.
+		proposal, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:  space.ID,
+			Kind:     KindProposal,
+			Title:    "Effective Vote Test",
+			State:    ProposalOpen,
+			Author:   "delegate-2",
+			AuthorID: "delegate-2",
+		})
+		if err != nil {
+			t.Fatalf("create proposal: %v", err)
+		}
+
+		// delegate-2 votes yes → effective count should be 2 (delegate-2 + delegator-1).
+		store.RecordOp(ctx, space.ID, proposal.ID, "delegate-2", "delegate-2", "vote",
+			[]byte(`{"vote":"yes"}`))
+
+		eff := store.GetEffectiveVoteCount(ctx, space.ID, proposal.ID)
+		if eff != 2 {
+			t.Errorf("effective vote count = %d, want 2 (delegate + delegator)", eff)
+		}
+
+		store.Undelegate(ctx, space.ID, "delegator-1")
+	})
+
+	t.Run("quorum_auto_close_on_threshold", func(t *testing.T) {
+		// Space has owner-gov + 3 members = 4 eligible (owner + 3 members).
+		eligible := store.GetSpaceMemberCount(ctx, space.ID)
+		if eligible < 2 {
+			t.Skipf("not enough members for quorum test (got %d)", eligible)
+		}
+
+		// Create a proposal with 50% quorum.
+		proposal, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:  space.ID,
+			Kind:     KindProposal,
+			Title:    "Quorum Test",
+			State:    ProposalOpen,
+			Author:   "owner-gov",
+			AuthorID: "owner-gov",
+		})
+		if err != nil {
+			t.Fatalf("create proposal: %v", err)
+		}
+		// quorum_pct=50: need 50% of eligible to vote.
+		if err := store.SetProposalConfig(ctx, proposal.ID, 50, VotingBodyAll); err != nil {
+			t.Fatalf("SetProposalConfig: %v", err)
+		}
+
+		// One vote (25% of 4) — should not close.
+		store.RecordOp(ctx, space.ID, proposal.ID, "voter-3", "voter-3", "vote",
+			[]byte(`{"vote":"yes"}`))
+		closed, _ := store.CheckAndAutoCloseProposal(ctx, space.ID, proposal.ID)
+		if closed {
+			t.Error("proposal closed after 1/4 vote, should not close at 25%")
+		}
+
+		// Second vote (50% of 4) — should close with "passed" (2 yes, 0 no).
+		store.RecordOp(ctx, space.ID, proposal.ID, "delegate-2", "delegate-2", "vote",
+			[]byte(`{"vote":"yes"}`))
+		closed, _ = store.CheckAndAutoCloseProposal(ctx, space.ID, proposal.ID)
+		if !closed {
+			t.Error("proposal not closed after 2/4 votes (50%), should close at quorum")
+		}
+
+		// Verify proposal is now in "passed" state.
+		node, _ := store.GetNode(ctx, proposal.ID)
+		if node.State != ProposalPassed {
+			t.Errorf("proposal state = %q, want %q", node.State, ProposalPassed)
+		}
+	})
+
+	t.Run("redelegate_updates_target", func(t *testing.T) {
+		// A→B, then A→C (re-delegate). The ON CONFLICT DO UPDATE path.
+		if err := store.Delegate(ctx, space.ID, "delegator-1", "delegate-2"); err != nil {
+			t.Fatalf("first Delegate: %v", err)
+		}
+		if err := store.Delegate(ctx, space.ID, "delegator-1", "voter-3"); err != nil {
+			t.Fatalf("re-Delegate to voter-3: %v", err)
+		}
+		if !store.HasDelegated(ctx, space.ID, "delegator-1") {
+			t.Error("HasDelegated after re-delegate = false, want true")
+		}
+		// voter-3 votes — effective count should include delegator-1 (now points to voter-3).
+		proposal, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:  space.ID,
+			Kind:     KindProposal,
+			Title:    "Redelegate Test",
+			State:    ProposalOpen,
+			Author:   "voter-3",
+			AuthorID: "voter-3",
+		})
+		if err != nil {
+			t.Fatalf("create proposal: %v", err)
+		}
+		store.RecordOp(ctx, space.ID, proposal.ID, "voter-3", "voter-3", "vote", []byte(`{"vote":"yes"}`))
+		eff := store.GetEffectiveVoteCount(ctx, space.ID, proposal.ID)
+		if eff != 2 {
+			t.Errorf("effective vote count after re-delegate = %d, want 2", eff)
+		}
+		store.Undelegate(ctx, space.ID, "delegator-1")
+	})
+
+	t.Run("undelegate_idempotent", func(t *testing.T) {
+		// delegator-1 has no delegation at this point (cleared by redelegate test).
+		if store.HasDelegated(ctx, space.ID, "delegator-1") {
+			store.Undelegate(ctx, space.ID, "delegator-1")
+		}
+		// Undelegating when nothing is delegated must not error.
+		if err := store.Undelegate(ctx, space.ID, "delegator-1"); err != nil {
+			t.Errorf("Undelegate with no delegation returned error: %v", err)
+		}
+	})
+
+	t.Run("quorum_disabled_when_zero", func(t *testing.T) {
+		// quorum_pct defaults to 0 — CheckAndAutoCloseProposal must skip auto-close.
+		proposal, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:  space.ID,
+			Kind:     KindProposal,
+			Title:    "Zero Quorum Test",
+			State:    ProposalOpen,
+			Author:   "owner-gov",
+			AuthorID: "owner-gov",
+		})
+		if err != nil {
+			t.Fatalf("create proposal: %v", err)
+		}
+		store.RecordOp(ctx, space.ID, proposal.ID, "voter-3", "voter-3", "vote", []byte(`{"vote":"yes"}`))
+		store.RecordOp(ctx, space.ID, proposal.ID, "delegate-2", "delegate-2", "vote", []byte(`{"vote":"yes"}`))
+		closed, err := store.CheckAndAutoCloseProposal(ctx, space.ID, proposal.ID)
+		if err != nil {
+			t.Fatalf("CheckAndAutoCloseProposal: %v", err)
+		}
+		if closed {
+			t.Error("proposal with quorum_pct=0 auto-closed, should never auto-close")
+		}
+	})
+
+	t.Run("quorum_tie_outcome_rejected", func(t *testing.T) {
+		// Equal yes/no votes at quorum → outcome is "rejected" (ProposalFailed).
+		proposal, err := store.CreateNode(ctx, CreateNodeParams{
+			SpaceID:  space.ID,
+			Kind:     KindProposal,
+			Title:    "Tie Vote Test",
+			State:    ProposalOpen,
+			Author:   "owner-gov",
+			AuthorID: "owner-gov",
+		})
+		if err != nil {
+			t.Fatalf("create proposal: %v", err)
+		}
+		if err := store.SetProposalConfig(ctx, proposal.ID, 50, VotingBodyAll); err != nil {
+			t.Fatalf("SetProposalConfig: %v", err)
+		}
+		// 2 votes out of 4 eligible = 50% → quorum met; one yes + one no → tie.
+		store.RecordOp(ctx, space.ID, proposal.ID, "voter-3", "voter-3", "vote", []byte(`{"vote":"yes"}`))
+		store.RecordOp(ctx, space.ID, proposal.ID, "delegate-2", "delegate-2", "vote", []byte(`{"vote":"no"}`))
+		closed, err := store.CheckAndAutoCloseProposal(ctx, space.ID, proposal.ID)
+		if err != nil {
+			t.Fatalf("CheckAndAutoCloseProposal: %v", err)
+		}
+		if !closed {
+			t.Error("proposal not closed at quorum with tied votes")
+		}
+		node, _ := store.GetNode(ctx, proposal.ID)
+		if node.State != ProposalFailed {
+			t.Errorf("tie vote state = %q, want %q", node.State, ProposalFailed)
+		}
+	})
+}

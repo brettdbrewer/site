@@ -117,6 +117,86 @@ func TestHandlerOp(t *testing.T) {
 		}
 	})
 
+	t.Run("intend_body_field", func(t *testing.T) {
+		// body key must be read (not silently dropped as with description-only fallback)
+		payload := `{"op":"intend","title":"Body Field Task","body":"from body key"}`
+		req := httptest.NewRequest("POST", "/app/handler-op-test/op", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		node := result["node"].(map[string]any)
+		if node["body"] != "from body key" {
+			t.Errorf("body = %v, want 'from body key'", node["body"])
+		}
+	})
+
+	t.Run("intend_description_fallback", func(t *testing.T) {
+		// when body key is absent, description key must be used for the node body
+		payload := `{"op":"intend","title":"Fallback Task","description":"from description key"}`
+		req := httptest.NewRequest("POST", "/app/handler-op-test/op", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		node := result["node"].(map[string]any)
+		if node["body"] != "from description key" {
+			t.Errorf("body = %v, want 'from description key'", node["body"])
+		}
+	})
+
+	t.Run("intend_body_beats_description", func(t *testing.T) {
+		// when both body and description are present, body wins
+		payload := `{"op":"intend","title":"Priority Task","body":"from body","description":"from description"}`
+		req := httptest.NewRequest("POST", "/app/handler-op-test/op", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		node := result["node"].(map[string]any)
+		if node["body"] != "from body" {
+			t.Errorf("body = %v, want 'from body'", node["body"])
+		}
+	})
+
+	t.Run("intend_kind_proposal", func(t *testing.T) {
+		// kind=proposal must not be silently dropped to kind=task
+		payload := `{"op":"intend","title":"Test Proposal","kind":"proposal"}`
+		req := httptest.NewRequest("POST", "/app/handler-op-test/op", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		node := result["node"].(map[string]any)
+		if node["kind"] != KindProposal {
+			t.Errorf("kind = %v, want %v", node["kind"], KindProposal)
+		}
+	})
+
 	t.Run("express_json", func(t *testing.T) {
 		body := `{"op":"express","title":"Test Post","body":"Hello world"}`
 		req := httptest.NewRequest("POST", "/app/handler-op-test/op", strings.NewReader(body))
@@ -1714,6 +1794,139 @@ func TestPopulateFormFromJSON(t *testing.T) {
 		populateFormFromJSON(r)
 		if got := r.FormValue("causes"); got != "id1,id2" {
 			t.Errorf("causes = %q, want %q", got, "id1,id2")
+		}
+	})
+}
+
+func TestHandlerGovernanceDelegation(t *testing.T) {
+	h, store, _ := testHandlers(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	// Clean up stale space.
+	if old, _ := store.GetSpaceBySlug(t.Context(), "gov-handler-test"); old != nil {
+		store.DeleteSpace(t.Context(), old.ID)
+	}
+	space, err := store.CreateSpace(t.Context(), "gov-handler-test", "Gov Handler Test", "", "test-user-1", "project", "public")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	t.Cleanup(func() { store.DeleteSpace(t.Context(), space.ID) })
+
+	t.Run("propose_with_quorum_pct", func(t *testing.T) {
+		body := `{"op":"propose","title":"Quorum Proposal","quorum_pct":"51","voting_body":"all"}`
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		if result["op"] != "propose" {
+			t.Errorf("op = %v, want propose", result["op"])
+		}
+	})
+
+	t.Run("delegate_op", func(t *testing.T) {
+		body := `{"op":"delegate","delegate_id":"other-user-999"}`
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+		}
+		var result map[string]any
+		json.NewDecoder(w.Body).Decode(&result)
+		if result["op"] != OpDelegate {
+			t.Errorf("op = %v, want %v", result["op"], OpDelegate)
+		}
+		if !store.HasDelegated(t.Context(), space.ID, "test-user-1") {
+			t.Error("HasDelegated after delegate op = false, want true")
+		}
+	})
+
+	t.Run("vote_blocked_when_delegated", func(t *testing.T) {
+		// test-user-1 has delegated (from previous subtest), so vote should fail.
+		proposals, _ := store.ListProposals(t.Context(), space.ID, "open", 10)
+		if len(proposals) == 0 {
+			t.Skip("no open proposals in space")
+		}
+		body := fmt.Sprintf(`{"op":"vote","node_id":%q,"vote":"yes"}`, proposals[0].ID)
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusConflict {
+			t.Errorf("status = %d, want %d (delegated user cannot vote directly)", w.Code, http.StatusConflict)
+		}
+	})
+
+	t.Run("undelegate_op", func(t *testing.T) {
+		body := `{"op":"undelegate"}`
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+		}
+		if store.HasDelegated(t.Context(), space.ID, "test-user-1") {
+			t.Error("HasDelegated after undelegate op = true, want false")
+		}
+	})
+
+	t.Run("delegate_missing_delegate_id", func(t *testing.T) {
+		body := `{"op":"delegate"}`
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d (missing delegate_id)", w.Code, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("vote_after_undelegate", func(t *testing.T) {
+		// test-user-1 has no delegation (removed by undelegate_op).
+		// Create a fresh proposal, then vote — must succeed.
+		propBody := `{"op":"propose","title":"Vote After Undelegate"}`
+		req := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(propBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("propose: status = %d; body: %s", w.Code, w.Body.String())
+		}
+		var propResult map[string]any
+		json.NewDecoder(w.Body).Decode(&propResult)
+		nodeMap, _ := propResult["node"].(map[string]any)
+		nodeID, _ := nodeMap["id"].(string)
+		if nodeID == "" {
+			t.Skip("could not extract node ID from propose response")
+		}
+
+		voteBody := fmt.Sprintf(`{"op":"vote","node_id":%q,"vote":"yes"}`, nodeID)
+		req2 := httptest.NewRequest("POST", "/app/gov-handler-test/op", strings.NewReader(voteBody))
+		req2.Header.Set("Content-Type", "application/json")
+		req2.Header.Set("Accept", "application/json")
+		w2 := httptest.NewRecorder()
+		mux.ServeHTTP(w2, req2)
+		if w2.Code != http.StatusOK {
+			t.Errorf("vote after undelegate: status = %d, want %d; body: %s", w2.Code, http.StatusOK, w2.Body.String())
 		}
 	})
 }

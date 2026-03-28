@@ -94,6 +94,19 @@ const (
 	OpLeaveTeam = "leave_team"
 )
 
+// Governance ops.
+const (
+	OpDelegate   = "delegate"
+	OpUndelegate = "undelegate"
+)
+
+// Voting body scopes for proposals.
+const (
+	VotingBodyAll     = "all"     // all space members
+	VotingBodyCouncil = "council" // council node members
+	VotingBodyTeam    = "team"    // team node members
+)
+
 // Space is a container — project, community, or team.
 type Space struct {
 	ID                 string     `json:"id"`
@@ -481,6 +494,17 @@ CREATE TABLE IF NOT EXISTS node_members (
 CREATE INDEX IF NOT EXISTS idx_node_members_user ON node_members(user_id);
 ALTER TABLE node_members DROP COLUMN IF EXISTS user_name;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS causes TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS quorum_pct INT NOT NULL DEFAULT 0;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS voting_body TEXT NOT NULL DEFAULT 'all';
+
+CREATE TABLE IF NOT EXISTS delegations (
+    space_id     TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    delegator_id TEXT NOT NULL,
+    delegate_id  TEXT NOT NULL,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (space_id, delegator_id)
+);
+CREATE INDEX IF NOT EXISTS idx_delegations_delegate ON delegations(space_id, delegate_id);
 `)
 	return err
 }
@@ -2288,11 +2312,15 @@ func (s *Store) ListChangelog(ctx context.Context, spaceID string, limit int) ([
 // Governance (Layer 11)
 // ────────────────────────────────────────────────────────────────────
 
-// ProposalWithVotes is a proposal node with vote tallies.
+// ProposalWithVotes is a proposal node with vote tallies and quorum state.
 type ProposalWithVotes struct {
 	Node
-	VotesYes int `json:"votes_yes"`
-	VotesNo  int `json:"votes_no"`
+	VotesYes       int    `json:"votes_yes"`
+	VotesNo        int    `json:"votes_no"`
+	QuorumPct      int    `json:"quorum_pct"`       // 0 = no quorum enforcement
+	VotingBody     string `json:"voting_body"`      // "all", "council", "team"
+	EffectiveVotes int    `json:"effective_votes"`  // direct + delegated vote count
+	EligibleCount  int    `json:"eligible_count"`   // eligible voter count for quorum display
 }
 
 // ListProposals returns proposals in a space with vote counts.
@@ -2305,7 +2333,8 @@ func (s *Store) ListProposals(ctx context.Context, spaceID, stateFilter string, 
 		       n.state, n.priority, n.assignee, n.assignee_id, n.author, n.author_id, n.author_kind,
 		       n.tags, n.pinned, n.due_date, n.created_at, n.updated_at, 0, 0, 0,
 		       COALESCE((SELECT COUNT(*) FROM ops o WHERE o.node_id = n.id AND o.op = 'vote' AND o.payload->>'vote' = 'yes'), 0),
-		       COALESCE((SELECT COUNT(*) FROM ops o WHERE o.node_id = n.id AND o.op = 'vote' AND o.payload->>'vote' = 'no'), 0)
+		       COALESCE((SELECT COUNT(*) FROM ops o WHERE o.node_id = n.id AND o.op = 'vote' AND o.payload->>'vote' = 'no'), 0),
+		       n.quorum_pct, n.voting_body
 		FROM nodes n
 		WHERE n.space_id = $1 AND n.kind = 'proposal'`
 	args := []any{spaceID}
@@ -2334,6 +2363,7 @@ func (s *Store) ListProposals(ctx context.Context, spaceID, stateFilter string, 
 			pq.Array(&p.Tags), &p.Pinned, &dueDate, &p.CreatedAt, &p.UpdatedAt,
 			&p.ChildCount, &p.ChildDone, &p.BlockerCount,
 			&p.VotesYes, &p.VotesNo,
+			&p.QuorumPct, &p.VotingBody,
 		); err != nil {
 			return nil, fmt.Errorf("scan proposal: %w", err)
 		}
@@ -2538,6 +2568,132 @@ func (s *Store) HasVoted(ctx context.Context, nodeID, actorID string) bool {
 		`SELECT EXISTS(SELECT 1 FROM ops WHERE node_id = $1 AND actor_id = $2 AND op = 'vote')`,
 		nodeID, actorID).Scan(&exists)
 	return exists
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Governance: delegation and quorum
+// ────────────────────────────────────────────────────────────────────
+
+// SetProposalConfig sets quorum_pct and voting_body on a proposal node.
+func (s *Store) SetProposalConfig(ctx context.Context, nodeID string, quorumPct int, votingBody string) error {
+	if votingBody == "" {
+		votingBody = VotingBodyAll
+	}
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE nodes SET quorum_pct = $1, voting_body = $2 WHERE id = $3`,
+		quorumPct, votingBody, nodeID)
+	return err
+}
+
+// Delegate records that delegatorID delegates their vote in spaceID to delegateID.
+// Returns an error if delegatorID == delegateID or if a circular delegation would result.
+func (s *Store) Delegate(ctx context.Context, spaceID, delegatorID, delegateID string) error {
+	if delegatorID == delegateID {
+		return fmt.Errorf("cannot delegate to yourself")
+	}
+	// Prevent circular delegation: check if delegateID has delegated to delegatorID.
+	var targetDelegate string
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT delegate_id FROM delegations WHERE space_id = $1 AND delegator_id = $2`,
+		spaceID, delegateID).Scan(&targetDelegate)
+	if targetDelegate == delegatorID {
+		return fmt.Errorf("circular delegation: delegate has already delegated to you")
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO delegations (space_id, delegator_id, delegate_id)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (space_id, delegator_id) DO UPDATE SET delegate_id = $3, created_at = NOW()`,
+		spaceID, delegatorID, delegateID)
+	return err
+}
+
+// Undelegate removes a delegation for delegatorID in spaceID.
+func (s *Store) Undelegate(ctx context.Context, spaceID, delegatorID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM delegations WHERE space_id = $1 AND delegator_id = $2`,
+		spaceID, delegatorID)
+	return err
+}
+
+// HasDelegated returns true if delegatorID has an active delegation in spaceID.
+func (s *Store) HasDelegated(ctx context.Context, spaceID, delegatorID string) bool {
+	var exists bool
+	s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM delegations WHERE space_id = $1 AND delegator_id = $2)`,
+		spaceID, delegatorID).Scan(&exists)
+	return exists
+}
+
+// GetSpaceMemberCount returns the number of distinct members in a space
+// (space_members rows + the owner if not in space_members).
+func (s *Store) GetSpaceMemberCount(ctx context.Context, spaceID string) int {
+	var count int
+	s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT user_id FROM space_members WHERE space_id = $1
+			UNION
+			SELECT owner_id FROM spaces WHERE id = $1
+		) uniq`, spaceID).Scan(&count)
+	return count
+}
+
+// GetEffectiveVoteCount returns the number of unique voters (direct + delegated)
+// who have voted on the given proposal node in the given space.
+func (s *Store) GetEffectiveVoteCount(ctx context.Context, spaceID, nodeID string) int {
+	var count int
+	s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT DISTINCT o.actor_id FROM ops o
+			WHERE o.node_id = $1 AND o.op = 'vote'
+			UNION
+			SELECT DISTINCT d.delegator_id FROM delegations d
+			JOIN ops o ON o.actor_id = d.delegate_id
+			WHERE o.node_id = $1 AND o.op = 'vote' AND d.space_id = $2
+		) uniq`, nodeID, spaceID).Scan(&count)
+	return count
+}
+
+// CheckAndAutoCloseProposal closes a proposal if quorum has been reached.
+// If yes_count > no_count the outcome is "passed"; otherwise "rejected".
+// Returns true if the proposal was auto-closed.
+func (s *Store) CheckAndAutoCloseProposal(ctx context.Context, spaceID, nodeID string) (bool, error) {
+	var quorumPct int
+	var state string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT quorum_pct, state FROM nodes WHERE id = $1`, nodeID).Scan(&quorumPct, &state)
+	if err != nil || state != ProposalOpen || quorumPct == 0 {
+		return false, err
+	}
+
+	eligible := s.GetSpaceMemberCount(ctx, spaceID)
+	if eligible == 0 {
+		return false, nil
+	}
+	effective := s.GetEffectiveVoteCount(ctx, spaceID, nodeID)
+	if effective*100 < quorumPct*eligible {
+		return false, nil
+	}
+
+	// Quorum met — determine outcome.
+	var yes, no int
+	s.db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN payload->>'vote' = 'yes' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN payload->>'vote' = 'no' THEN 1 ELSE 0 END), 0)
+		FROM ops WHERE node_id = $1 AND op = 'vote'`, nodeID).Scan(&yes, &no)
+
+	newState := ProposalFailed
+	outcome := "rejected"
+	if yes > no {
+		newState = ProposalPassed
+		outcome = "passed"
+	}
+	if err := s.UpdateNodeState(ctx, nodeID, newState); err != nil {
+		return false, err
+	}
+	payload, _ := json.Marshal(map[string]string{"outcome": outcome, "trigger": "quorum"})
+	s.RecordOp(ctx, spaceID, nodeID, "system", "", "close_proposal", payload)
+	return true, nil
 }
 
 // ────────────────────────────────────────────────────────────────────
