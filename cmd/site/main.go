@@ -147,6 +147,74 @@ func main() {
 		views.VisionLayerPage(layer, goals, layers).Render(r.Context(), w)
 	})
 
+	mux.HandleFunc("GET /vision/goal/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if hiveSpaceID == "" && graphStore != nil {
+			if sp, err := graphStore.GetSpaceBySlug(r.Context(), "hive"); err == nil {
+				hiveSpaceID = sp.ID
+			}
+		}
+		id := r.PathValue("id")
+		if graphStore == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		goal, err := graphStore.GetNode(r.Context(), id)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		// Build breadcrumb: walk up parent chain.
+		var breadcrumbs []views.VisionBreadcrumb
+		parentID := goal.ParentID
+		for parentID != "" {
+			parent, err := graphStore.GetNode(r.Context(), parentID)
+			if err != nil {
+				break
+			}
+			breadcrumbs = append([]views.VisionBreadcrumb{{
+				ID: parent.ID, Title: parent.Title, Kind: parent.Kind,
+			}}, breadcrumbs...)
+			parentID = parent.ParentID
+		}
+
+		// Get children of this goal.
+		children, _ := graphStore.ListNodes(r.Context(), graph.ListNodesParams{
+			SpaceID:  hiveSpaceID,
+			ParentID: id,
+		})
+		var childNodes []views.VisionChild
+		for _, c := range children {
+			if c.State == "done" || c.State == "closed" {
+				continue
+			}
+			// Count grandchildren for progress.
+			grandchildren, _ := graphStore.ListNodes(r.Context(), graph.ListNodesParams{
+				SpaceID:  hiveSpaceID,
+				ParentID: c.ID,
+			})
+			total, done := 0, 0
+			for _, gc := range grandchildren {
+				total++
+				if gc.State == "done" || gc.State == "closed" {
+					done++
+				}
+			}
+			childNodes = append(childNodes, views.VisionChild{
+				ID: c.ID, Title: c.Title, Body: c.Body,
+				Kind: c.Kind, State: c.State,
+				ChildCount: total, DoneCount: done,
+			})
+		}
+
+		views.VisionGoalPage(
+			views.VisionBreadcrumb{ID: goal.ID, Title: goal.Title, Kind: goal.Kind},
+			goal.Body, goal.State,
+			breadcrumbs, childNodes,
+		).Render(r.Context(), w)
+	})
+
 	// Reference.
 	mux.HandleFunc("GET /reference", func(w http.ResponseWriter, r *http.Request) {
 		views.ReferenceIndex(layers, agentPrims, grammars).Render(r.Context(), w)

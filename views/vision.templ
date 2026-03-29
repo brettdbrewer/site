@@ -137,12 +137,18 @@ templ VisionLayerPage(layer Layer, goals []Goal, layers []Layer) {
 				if len(goals) > 0 {
 					<div class="space-y-2">
 						for _, g := range goals {
-							<div class="bg-surface rounded-lg border border-edge p-4">
-								<h3 class="text-sm text-warm font-medium">{ g.Title }</h3>
+							<a href={ templ.SafeURL("/vision/goal/" + g.ID) }
+								class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/30 transition-colors group">
+								<h3 class="text-sm text-warm font-medium group-hover:text-brand transition-colors">{ g.Title }</h3>
 								if g.Body != "" {
 									<p class="text-xs text-warm-muted mt-1.5 leading-relaxed">{ g.Body }</p>
 								}
-							</div>
+								<div class="flex items-center justify-end mt-2">
+									<svg class="w-4 h-4 text-warm-faint group-hover:text-brand transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+									</svg>
+								</div>
+							</a>
 						}
 					</div>
 				} else {
@@ -155,6 +161,122 @@ templ VisionLayerPage(layer Layer, goals []Goal, layers []Layer) {
 			</section>
 		</div>
 	}
+}
+
+// VisionBreadcrumb is a node in the breadcrumb path.
+type VisionBreadcrumb struct {
+	ID    string
+	Title string
+	Kind  string
+}
+
+// VisionChild is a child node with progress counts.
+type VisionChild struct {
+	ID         string
+	Title      string
+	Body       string
+	Kind       string
+	State      string
+	ChildCount int
+	DoneCount  int
+}
+
+templ VisionGoalPage(current VisionBreadcrumb, body, state string, breadcrumbs []VisionBreadcrumb, children []VisionChild) {
+	@Layout(current.Title, "") {
+		<div class="max-w-3xl mx-auto px-6 py-12 space-y-8">
+			<!-- Breadcrumb -->
+			<nav class="flex items-center gap-1.5 text-sm flex-wrap">
+				<a href="/vision" class="text-warm-muted hover:text-brand transition-colors">Vision</a>
+				for _, crumb := range breadcrumbs {
+					<span class="text-warm-faint/50">/</span>
+					<a href={ templ.SafeURL("/vision/goal/" + crumb.ID) }
+						class="text-warm-muted hover:text-brand transition-colors truncate max-w-40">
+						{ crumb.Title }
+					</a>
+				}
+				<span class="text-warm-faint/50">/</span>
+				<span class="text-warm font-medium truncate max-w-48">{ current.Title }</span>
+			</nav>
+
+			<!-- Current node -->
+			<section class="space-y-4">
+				<div>
+					<div class="flex items-center gap-2">
+						<span class={ "text-[10px] font-semibold uppercase tracking-wider",
+							templ.KV("text-brand", current.Kind == "goal"),
+							templ.KV("text-emerald-400", current.Kind == "project"),
+							templ.KV("text-amber-400", current.Kind == "task") }>
+							{ current.Kind }
+						</span>
+						if state != "" && state != "open" {
+							<span class={ "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded",
+								templ.KV("bg-emerald-500/15 text-emerald-400", state == "done"),
+								templ.KV("bg-brand/15 text-brand", state == "active") }>
+								{ state }
+							</span>
+						}
+					</div>
+					<h1 class="font-display text-2xl text-warm mt-2">{ current.Title }</h1>
+				</div>
+				if body != "" {
+					<p class="text-sm text-warm-secondary leading-relaxed">{ body }</p>
+				}
+			</section>
+
+			<hr class="border-edge"/>
+
+			<!-- Children -->
+			<section class="space-y-4">
+				if len(children) > 0 {
+					<div class="space-y-2">
+						for _, child := range children {
+							<a href={ templ.SafeURL("/vision/goal/" + child.ID) }
+								class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/30 transition-colors group">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0">
+										<div class="flex items-center gap-2">
+											<span class={ "text-[10px] font-semibold uppercase tracking-wider",
+												templ.KV("text-brand", child.Kind == "goal"),
+												templ.KV("text-emerald-400", child.Kind == "project"),
+												templ.KV("text-amber-400", child.Kind == "task") }>
+												{ child.Kind }
+											</span>
+										</div>
+										<h3 class="text-sm text-warm mt-1 group-hover:text-brand transition-colors">{ child.Title }</h3>
+										if child.Body != "" {
+											<p class="text-xs text-warm-muted mt-1 line-clamp-2">{ child.Body }</p>
+										}
+									</div>
+									<div class="flex items-center gap-2 flex-shrink-0">
+										if child.ChildCount > 0 {
+											<div class="flex items-center gap-1.5">
+												<div class="w-16 h-1.5 bg-edge rounded-full overflow-hidden">
+													<div class="h-full bg-brand rounded-full" style={ fmt.Sprintf("width: %d%%", progressPct(child.DoneCount, child.ChildCount)) }></div>
+												</div>
+												<span class="text-[10px] text-warm-faint">{ fmt.Sprintf("%d/%d", child.DoneCount, child.ChildCount) }</span>
+											</div>
+										}
+										<svg class="w-4 h-4 text-warm-faint group-hover:text-brand transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+										</svg>
+									</div>
+								</div>
+							</a>
+						}
+					</div>
+				} else {
+					<p class="text-sm text-warm-faint italic">No projects or sub-goals yet. This goal awaits its first project.</p>
+				}
+			</section>
+		</div>
+	}
+}
+
+func progressPct(done, total int) int {
+	if total == 0 { return 0 }
+	pct := (done * 100) / total
+	if pct > 100 { return 100 }
+	return pct
 }
 
 func formatLayerNum(n int) string {
