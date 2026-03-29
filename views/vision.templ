@@ -35,7 +35,12 @@ templ VisionPage(layers []Layer) {
 								<span class="text-xs font-mono text-brand bg-brand/10 px-2 py-0.5 rounded mt-0.5">{ formatLayerNum(layer.Number) }</span>
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center justify-between">
-										<h3 class="text-sm text-warm group-hover:text-brand transition-colors font-medium">{ layer.Name }</h3>
+										<h3 class="text-sm text-warm group-hover:text-brand transition-colors font-medium">
+										{ layer.Name }
+										if layer.WeightName != "" && layer.WeightName != layer.Name {
+											<span class="text-warm-faint font-normal"> ({ layer.WeightName })</span>
+										}
+									</h3>
 										<svg class="w-4 h-4 text-warm-faint group-hover:text-brand transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 										</svg>
@@ -80,7 +85,12 @@ templ VisionLayerPage(layer Layer, goals []Goal, layers []Layer) {
 			<section class="space-y-4">
 				<div>
 					<span class="text-xs font-mono text-brand bg-brand/10 px-2 py-0.5 rounded">Layer { formatLayerNum(layer.Number) }</span>
-					<h1 class="font-display text-2xl text-warm mt-2">{ layer.Name }</h1>
+					<h1 class="font-display text-2xl text-warm mt-2">
+						{ layer.Name }
+						if layer.WeightName != "" && layer.WeightName != layer.Name {
+							<span class="text-warm-muted font-normal"> ({ layer.WeightName })</span>
+						}
+					</h1>
 					if layer.Gap != "" {
 						<p class="text-sm text-warm-muted mt-2">
 							<span class="text-warm-faint">Gap:</span> { layer.Gap }

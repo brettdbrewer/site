@@ -83,24 +83,25 @@ func LoadLayers() []views.Layer {
 // fundamental (ontological) primitives derived from layer gaps.
 func parseFundamentals() []views.Layer {
 	filenames := []struct {
-		num  int
-		name string
-		file string
+		num        int
+		name       string
+		weightName string
+		file       string
 	}{
-		{0, "Foundation", "layer-0-foundation.md"},
-		{1, "Agency", "layer-1-agency.md"},
-		{2, "Exchange", "layer-2-exchange.md"},
-		{3, "Society", "layer-3-society.md"},
-		{4, "Legal", "layer-4-legal.md"},
-		{5, "Technology", "layer-5-technology.md"},
-		{6, "Information", "layer-6-information.md"},
-		{7, "Ethics", "layer-7-ethics.md"},
-		{8, "Identity", "layer-8-identity.md"},
-		{9, "Relationship", "layer-9-relationship.md"},
-		{10, "Community", "layer-10-community.md"},
-		{11, "Culture", "layer-11-culture.md"},
-		{12, "Emergence", "layer-12-emergence.md"},
-		{13, "Existence", "layer-13-existence.md"},
+		{0, "Foundation", "Foundation", "layer-0-foundation.md"},
+		{1, "Agency", "Work", "layer-1-agency.md"},
+		{2, "Exchange", "Markets", "layer-2-exchange.md"},
+		{3, "Society", "Society", "layer-3-society.md"},
+		{4, "Legal", "Justice", "layer-4-legal.md"},
+		{5, "Technology", "Research", "layer-5-technology.md"},
+		{6, "Information", "Knowledge", "layer-6-information.md"},
+		{7, "Ethics", "Ethics", "layer-7-ethics.md"},
+		{8, "Identity", "Identity", "layer-8-identity.md"},
+		{9, "Relationship", "Relationships", "layer-9-relationship.md"},
+		{10, "Community", "Community", "layer-10-community.md"},
+		{11, "Governance", "Governance", "layer-11-culture.md"},
+		{12, "Culture", "Culture", "layer-12-emergence.md"},
+		{13, "Existence", "Existence", "layer-13-existence.md"},
 	}
 
 	fundGroup := regexp.MustCompile(`^### Group [A-Z] — (.+?)(?:\s*\(.*\))?$`)
@@ -116,8 +117,9 @@ func parseFundamentals() []views.Layer {
 		}
 
 		layer := views.Layer{
-			Number: f.num,
-			Name:   f.name,
+			Number:     f.num,
+			Name:       f.name,
+			WeightName: f.weightName,
 		}
 
 		lines := strings.Split(string(raw), "\n")

@@ -29,7 +29,8 @@ type RefPage struct {
 // Layer is a layer with its primitives.
 type Layer struct {
 	Number      int
-	Name        string
+	Name        string // ontological name (Agency, Exchange, etc.)
+	WeightName  string // suffering domain from The Weight (Work, Markets, etc.)
 	Gap         string
 	Transition  string
 	Description string // rendered HTML from derivation docs
