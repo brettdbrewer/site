@@ -34,6 +34,14 @@ type Layer struct {
 	Transition  string
 	Description string // rendered HTML from derivation docs
 	Primitives  []Primitive
+	Goals       []Goal
+}
+
+// Goal is a permanent goal derived from a layer's suffering + primitives.
+// States what must be true in the world so the suffering can't happen.
+type Goal struct {
+	ID    string // e.g. "g1.1"
+	Title string // what must be true
 }
 
 // Primitive is a cognitive primitive.
