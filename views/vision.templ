@@ -29,43 +29,27 @@ templ VisionPage(layers []Layer) {
 
 				<div class="space-y-2">
 					for _, layer := range layers {
-						if layer.Number == 0 {
-							<!-- Layer 0: Foundation — shown differently -->
-							<div class="bg-surface rounded-lg border border-edge p-4">
-								<div class="flex items-start gap-3">
-									<span class="text-xs font-mono text-warm-faint bg-elevated px-2 py-0.5 rounded mt-0.5">0</span>
-									<div>
-										<a href={ templ.SafeURL("/reference/layers/0") } class="text-sm text-warm hover:text-brand transition-colors font-medium">
-											{ layer.Name }
-										</a>
-										<p class="text-xs text-warm-muted mt-0.5">{ layer.Transition }</p>
-										<p class="text-xs text-warm-faint mt-1">{ formatPrimCount(len(layer.Primitives)) } — the irreducible foundations</p>
+						<a href={ templ.SafeURL("/vision/" + layerSlug(layer.Number)) }
+							class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/30 transition-colors group">
+							<div class="flex items-start gap-3">
+								<span class="text-xs font-mono text-brand bg-brand/10 px-2 py-0.5 rounded mt-0.5">{ formatLayerNum(layer.Number) }</span>
+								<div class="flex-1 min-w-0">
+									<div class="flex items-center justify-between">
+										<h3 class="text-sm text-warm group-hover:text-brand transition-colors font-medium">{ layer.Name }</h3>
+										<svg class="w-4 h-4 text-warm-faint group-hover:text-brand transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+										</svg>
 									</div>
+									if layer.Gap != "" {
+										<p class="text-xs text-warm-muted mt-0.5">Gap: { layer.Gap }</p>
+									}
+									if layer.Transition != "" {
+										<p class="text-xs text-warm-faint mt-0.5">{ layer.Transition }</p>
+									}
+									<p class="text-xs text-warm-faint mt-1">{ formatPrimCount(len(layer.Primitives)) }</p>
 								</div>
 							</div>
-						} else {
-							<a href={ templ.SafeURL("/vision/" + layerSlug(layer.Number)) }
-								class="block bg-surface rounded-lg border border-edge p-4 hover:border-brand/30 transition-colors group">
-								<div class="flex items-start gap-3">
-									<span class="text-xs font-mono text-brand bg-brand/10 px-2 py-0.5 rounded mt-0.5">{ formatLayerNum(layer.Number) }</span>
-									<div class="flex-1 min-w-0">
-										<div class="flex items-center justify-between">
-											<h3 class="text-sm text-warm group-hover:text-brand transition-colors font-medium">{ layer.Name }</h3>
-											<svg class="w-4 h-4 text-warm-faint group-hover:text-brand transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-											</svg>
-										</div>
-										if layer.Gap != "" {
-											<p class="text-xs text-warm-muted mt-0.5">Gap: { layer.Gap }</p>
-										}
-										if layer.Transition != "" {
-											<p class="text-xs text-warm-faint mt-0.5">{ layer.Transition }</p>
-										}
-										<p class="text-xs text-warm-faint mt-1">{ formatPrimCount(len(layer.Primitives)) }</p>
-									</div>
-								</div>
-							</a>
-						}
+						</a>
 					}
 				</div>
 			</section>
