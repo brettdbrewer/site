@@ -54,9 +54,10 @@ func ContextWithUser(ctx context.Context, u *User) context.Context {
 
 // Auth handles Google OAuth2 and session management.
 type Auth struct {
-	db     *sql.DB
-	oauth  *oauth2.Config
-	secure bool
+	db          *sql.DB
+	oauth       *oauth2.Config
+	secure      bool
+	userInfoURL string // defaults to Google's userinfo endpoint; overridable in tests
 }
 
 // New creates an Auth service backed by the given database.
@@ -70,7 +71,8 @@ func New(db *sql.DB, clientID, clientSecret, redirectURL string, secure bool) (*
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint:     google.Endpoint,
 		},
-		secure: secure,
+		secure:      secure,
+		userInfoURL: "https://www.googleapis.com/oauth2/v2/userinfo",
 	}
 	if err := a.migrate(); err != nil {
 		return nil, fmt.Errorf("auth migrate: %w", err)
@@ -258,7 +260,7 @@ func (a *Auth) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch Google user info.
 	client := a.oauth.Client(r.Context(), token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	resp, err := client.Get(a.userInfoURL)
 	if err != nil {
 		log.Printf("auth: fetch userinfo error: %v", err)
 		http.Redirect(w, r, "/auth/error?code=userinfo_failed", http.StatusSeeOther)

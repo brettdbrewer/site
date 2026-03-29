@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -537,5 +538,316 @@ func TestConcurrentSessions(t *testing.T) {
 	}
 	if u1.Email != u2.Email {
 		t.Errorf("sessions resolved to different users: u1.Email=%s u2.Email=%s", u1.Email, u2.Email)
+	}
+}
+
+// ────────────────────────────────────────────────────────────────────
+// OAuth happy path and exchange failure tests
+// ────────────────────────────────────────────────────────────────────
+
+// TestOAuthHappyPath exercises the full OAuth callback flow using mocked Google
+// token exchange and userinfo endpoints. Requires a real database.
+func TestOAuthHappyPath(t *testing.T) {
+	a, db := testAuth(t)
+	ctx := context.Background()
+
+	testEmail := "oauth-happy@test.invalid"
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = $1)`, testEmail)
+		db.ExecContext(ctx, `DELETE FROM users WHERE email = $1`, testEmail)
+	})
+
+	// Mock Google userinfo endpoint.
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"id":      "google-oauth-test-123",
+			"email":   testEmail,
+			"name":    "OAuth Happy Tester",
+			"picture": "https://example.com/pic.jpg",
+		})
+	}))
+	defer userInfoServer.Close()
+
+	// Mock Google token exchange endpoint — returns a minimal valid token response.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "test-access-token",
+			"token_type":   "Bearer",
+			"expires_in":   3600,
+		})
+	}))
+	defer tokenServer.Close()
+
+	// Override oauth config and userinfo URL so no real Google traffic happens.
+	a.oauth.Endpoint = oauth2.Endpoint{
+		TokenURL:  tokenServer.URL + "/token",
+		AuthURL:   tokenServer.URL + "/auth",
+		AuthStyle: oauth2.AuthStyleInParams,
+	}
+	a.userInfoURL = userInfoServer.URL + "/userinfo"
+
+	req := httptest.NewRequest("GET", "/auth/callback?state=teststate&code=testcode", nil)
+	req.Host = "localhost"
+	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "teststate"})
+	w := httptest.NewRecorder()
+	a.handleCallback(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d (redirect to /app)", w.Code, http.StatusSeeOther)
+	}
+	if loc := w.Header().Get("Location"); loc != "/app" {
+		t.Errorf("redirect location = %q, want /app", loc)
+	}
+
+	// Verify session cookie was set.
+	var sessionCookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "session" {
+			sessionCookie = c
+			break
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("expected session cookie in response")
+	}
+
+	// Verify session resolves to the correct user.
+	user, err := a.userBySession(ctx, sessionCookie.Value)
+	if err != nil {
+		t.Fatalf("userBySession: %v", err)
+	}
+	if user.Email != testEmail {
+		t.Errorf("user.Email = %q, want %q", user.Email, testEmail)
+	}
+	if user.Kind != "human" {
+		t.Errorf("user.Kind = %q, want human", user.Kind)
+	}
+}
+
+// TestOAuthCallbackTokenExchangeFailure verifies that when the token exchange
+// fails (e.g. Workspace blocks OAuth), the handler redirects to exchange_failed.
+func TestOAuthCallbackTokenExchangeFailure(t *testing.T) {
+	// Mock token endpoint that rejects the code.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
+	}))
+	defer tokenServer.Close()
+
+	a := &Auth{
+		secure: false,
+		oauth: &oauth2.Config{
+			ClientID:     "test-client",
+			ClientSecret: "test-secret",
+			Endpoint: oauth2.Endpoint{
+				TokenURL:  tokenServer.URL + "/token",
+				AuthURL:   tokenServer.URL + "/auth",
+				AuthStyle: oauth2.AuthStyleInParams,
+			},
+		},
+		userInfoURL: "http://should-not-be-called",
+	}
+
+	req := httptest.NewRequest("GET", "/auth/callback?state=mystate&code=testcode", nil)
+	req.Host = "localhost"
+	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "mystate"})
+	w := httptest.NewRecorder()
+	a.handleCallback(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.Contains(loc, "exchange_failed") {
+		t.Errorf("expected redirect to exchange_failed, got %q", loc)
+	}
+}
+
+// TestOAuthCallbackMissingCode verifies that an empty code causes exchange_failed.
+func TestOAuthCallbackMissingCode(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid_request"})
+	}))
+	defer tokenServer.Close()
+
+	a := &Auth{
+		secure: false,
+		oauth: &oauth2.Config{
+			ClientID:     "test-client",
+			ClientSecret: "test-secret",
+			Endpoint: oauth2.Endpoint{
+				TokenURL:  tokenServer.URL + "/token",
+				AuthURL:   tokenServer.URL + "/auth",
+				AuthStyle: oauth2.AuthStyleInParams,
+			},
+		},
+		userInfoURL: "http://should-not-be-called",
+	}
+
+	// No code parameter in URL.
+	req := httptest.NewRequest("GET", "/auth/callback?state=mystate", nil)
+	req.Host = "localhost"
+	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "mystate"})
+	w := httptest.NewRecorder()
+	a.handleCallback(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.HasPrefix(loc, "/auth/error") {
+		t.Errorf("expected redirect to /auth/error, got %q", loc)
+	}
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Session lifecycle tests
+// ────────────────────────────────────────────────────────────────────
+
+// TestSessionExpired verifies that an expired session is rejected.
+func TestSessionExpired(t *testing.T) {
+	a, db := testAuth(t)
+	ctx := context.Background()
+
+	userID := "session-expire-test"
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'human')`,
+		userID, "google:expire-test", "expire@test.invalid", "Expire Tester"); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	})
+
+	// Insert an already-expired session.
+	sessionID := newID()
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 second')`,
+		sessionID, userID); err != nil {
+		t.Fatalf("insert expired session: %v", err)
+	}
+
+	_, err := a.userBySession(ctx, sessionID)
+	if err == nil {
+		t.Error("expired session should be rejected")
+	}
+}
+
+// TestLogout verifies that logout deletes the session and clears the cookie.
+func TestLogout(t *testing.T) {
+	a, db := testAuth(t)
+	ctx := context.Background()
+
+	userID := "logout-test"
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'human')`,
+		userID, "google:logout-test", "logout@test.invalid", "Logout Tester"); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	})
+
+	sessionID := newID()
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')`,
+		sessionID, userID); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+
+	// Session is valid before logout.
+	if _, err := a.userBySession(ctx, sessionID); err != nil {
+		t.Fatalf("session should be valid before logout: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/auth/logout", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: sessionID})
+	w := httptest.NewRecorder()
+	a.handleLogout(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("logout status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+
+	// Session must be invalid after logout.
+	if _, err := a.userBySession(ctx, sessionID); err == nil {
+		t.Error("session should be invalid after logout")
+	}
+
+	// Response must clear the session cookie (MaxAge = -1).
+	var cleared bool
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "session" && c.MaxAge == -1 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Error("expected session cookie to be cleared (MaxAge=-1) after logout")
+	}
+}
+
+// ────────────────────────────────────────────────────────────────────
+// API key revoke test
+// ────────────────────────────────────────────────────────────────────
+
+// TestAPIKeyRevoke verifies that a deleted API key can no longer authenticate.
+func TestAPIKeyRevoke(t *testing.T) {
+	a, db := testAuth(t)
+	ctx := context.Background()
+
+	userID := "revoke-test"
+	db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, google_id, email, name, kind) VALUES ($1, $2, $3, $4, 'human')`,
+		userID, "google:revoke-test", "revoke@test.invalid", "Revoke Tester"); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	t.Cleanup(func() {
+		db.ExecContext(ctx, `DELETE FROM api_keys WHERE user_id = $1`, userID)
+		db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	})
+
+	rawKey, err := a.createAPIKey(ctx, userID, "revoke-key", "")
+	if err != nil {
+		t.Fatalf("create key: %v", err)
+	}
+
+	// Key authenticates before revocation.
+	if _, err := a.userByAPIKey(ctx, rawKey); err != nil {
+		t.Fatalf("key should authenticate before revocation: %v", err)
+	}
+
+	// Find the key ID.
+	keys, err := a.ListAPIKeys(ctx, userID)
+	if err != nil || len(keys) == 0 {
+		t.Fatalf("list keys: err=%v len=%d", err, len(keys))
+	}
+	keyID := keys[0].ID
+
+	// Revoke via direct DB delete (same operation as handleDeleteAPIKey).
+	if _, err := db.ExecContext(ctx,
+		`DELETE FROM api_keys WHERE id = $1 AND user_id = $2`, keyID, userID); err != nil {
+		t.Fatalf("revoke key: %v", err)
+	}
+
+	// Key must not authenticate after revocation.
+	if _, err := a.userByAPIKey(ctx, rawKey); err == nil {
+		t.Error("revoked key should no longer authenticate")
+	}
+
+	// List should be empty.
+	remaining, err := a.ListAPIKeys(ctx, userID)
+	if err != nil {
+		t.Fatalf("list after revoke: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Errorf("expected 0 keys after revoke, got %d", len(remaining))
 	}
 }
