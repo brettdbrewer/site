@@ -81,9 +81,8 @@ templ VisionPage(layers []Layer) {
 	}
 }
 
-// VisionLayerPage shows a single layer's goals with drill-down.
-// For now, shows the layer info + link to reference. Goals will be populated as we derive them.
-templ VisionLayerPage(layer Layer, layers []Layer) {
+// VisionLayerPage shows a layer's derived goals from the DB.
+templ VisionLayerPage(layer Layer, goals []Goal, layers []Layer) {
 	@Layout("Layer " + formatLayerNum(layer.Number) + ": " + layer.Name, layer.Gap) {
 		<div class="max-w-3xl mx-auto px-6 py-12 space-y-8">
 			<!-- Breadcrumb -->
@@ -131,12 +130,26 @@ templ VisionLayerPage(layer Layer, layers []Layer) {
 
 			<hr class="border-edge"/>
 
-			<!-- Goals — to be derived -->
+			<!-- Goals derived from this layer -->
 			<section class="space-y-4">
 				<h2 class="font-display text-lg text-warm">Goals</h2>
-				<p class="text-sm text-warm-faint italic">Goals for this layer have not been derived yet. Apply the generator function to this layer's primitives to derive what the world needs from this infrastructure.</p>
+				<p class="text-xs text-warm-muted mb-3">Derived from The Weight + this layer's primitives. What must be true so the suffering can't happen.</p>
+				if len(goals) > 0 {
+					<div class="space-y-2">
+						for _, g := range goals {
+							<div class="bg-surface rounded-lg border border-edge p-4">
+								<h3 class="text-sm text-warm font-medium">{ g.Title }</h3>
+								if g.Body != "" {
+									<p class="text-xs text-warm-muted mt-1.5 leading-relaxed">{ g.Body }</p>
+								}
+							</div>
+						}
+					</div>
+				} else {
+					<p class="text-sm text-warm-faint italic">Goals for this layer have not been derived yet.</p>
+				}
 				<a href={ templ.SafeURL("/reference/layers/" + formatLayerNum(layer.Number)) }
-					class="inline-block text-sm text-brand hover:text-brand-dark transition-colors">
+					class="inline-block text-sm text-brand hover:text-brand-dark transition-colors mt-2">
 					View full layer reference →
 				</a>
 			</section>

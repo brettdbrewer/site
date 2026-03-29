@@ -83,21 +83,68 @@ func main() {
 	mux.HandleFunc("GET /blog", handleBlogIndex)
 	mux.HandleFunc("GET /blog/{slug}", handleBlogPost)
 
+	// Forward-declare DB-dependent vars so closures can capture them.
+	// They're set later in the DB init block.
+	var graphStore *graph.Store
+	_ = graphStore // used in vision handler closures
+
 	// Vision.
 	mux.HandleFunc("GET /vision", func(w http.ResponseWriter, r *http.Request) {
 		views.VisionPage(layers).Render(r.Context(), w)
 	})
+	var hiveSpaceID string // resolved lazily on first vision layer request
+
 	mux.HandleFunc("GET /vision/layer/{num}", func(w http.ResponseWriter, r *http.Request) {
+		// Lazy-resolve hive space ID.
+		if hiveSpaceID == "" && graphStore != nil {
+			if sp, err := graphStore.GetSpaceBySlug(r.Context(), "hive"); err == nil {
+				hiveSpaceID = sp.ID
+			}
+		}
 		num, err := strconv.Atoi(r.PathValue("num"))
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		if layer, ok := layersByNum[num]; ok {
-			views.VisionLayerPage(layer, layers).Render(r.Context(), w)
-		} else {
+		layer, ok := layersByNum[num]
+		if !ok {
 			http.NotFound(w, r)
+			return
 		}
+
+		// Load goals from DB: find the layer goal node, then its children.
+		var goals []views.Goal
+		if graphStore != nil {
+			layerTitle := fmt.Sprintf("Layer %d:", num)
+			// Find the layer's goal node by title prefix.
+			allGoals, _ := graphStore.ListNodes(r.Context(), graph.ListNodesParams{
+				SpaceID: hiveSpaceID,
+				Kind:    "goal",
+				ParentID: "root",
+			})
+			for _, lg := range allGoals {
+				if len(lg.Title) >= len(layerTitle) && lg.Title[:len(layerTitle)] == layerTitle && lg.State != "done" && lg.State != "closed" {
+					// Found the layer node — get its children.
+					children, _ := graphStore.ListNodes(r.Context(), graph.ListNodesParams{
+						SpaceID:  hiveSpaceID,
+						ParentID: lg.ID,
+					})
+					for _, child := range children {
+						if child.State != "done" && child.State != "closed" {
+							goals = append(goals, views.Goal{
+								ID:    child.ID,
+								Title: child.Title,
+								Body:  child.Body,
+								State: child.State,
+							})
+						}
+					}
+					break
+				}
+			}
+		}
+
+		views.VisionLayerPage(layer, goals, layers).Render(r.Context(), w)
 	})
 
 	// Reference.
@@ -154,7 +201,6 @@ func main() {
 	})
 
 	// Discover page (public spaces) — registered after DB setup below.
-	var graphStore *graph.Store
 	var mind *graph.Mind
 
 	// Auth middleware wrappers — initialized in the DB block, used by routes below.

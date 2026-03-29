@@ -40,8 +40,10 @@ type Layer struct {
 // Goal is a permanent goal derived from a layer's suffering + primitives.
 // States what must be true in the world so the suffering can't happen.
 type Goal struct {
-	ID    string // e.g. "g1.1"
+	ID    string // node ID in DB
 	Title string // what must be true
+	Body  string // derivation context
+	State string // open, done, etc.
 }
 
 // Primitive is a cognitive primitive.
