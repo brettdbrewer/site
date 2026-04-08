@@ -382,8 +382,8 @@ func (h *Handlers) spaceFromRequest(r *http.Request) (*Space, error) {
 	if space.OwnerID == uid {
 		return space, nil
 	}
-	if space.Visibility == VisibilityPublic && uid != anonUserID {
-		return space, nil
+	if space.Visibility == VisibilityPublic {
+		return space, nil // DEV: allows anonymous writes to public spaces — re-gate after auth graduates
 	}
 	return nil, ErrNotFound
 }
